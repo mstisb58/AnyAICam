@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.tanguecaptureapp.databinding.ActivityPreviewBinding
 import java.io.File
+import java.io.IOException
 
 class PreviewActivity : AppCompatActivity() {
 
@@ -22,17 +23,23 @@ class PreviewActivity : AppCompatActivity() {
         binding = ActivityPreviewBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Intentからバイト配列ではなく、一時ファイルのパスを受け取る
         tempImagePath = intent.getStringExtra(EXTRA_CROPPED_IMAGE_PATH)
-        if (tempImagePath != null) {
-            // パスからBitmapを読み込む
-            croppedBitmap = BitmapFactory.decodeFile(tempImagePath)
-            binding.previewImage.setImageBitmap(croppedBitmap)
-        } else {
-            Toast.makeText(this, "画像の取得に失敗しました", Toast.LENGTH_SHORT).show()
+        if (tempImagePath == null) {
+            Toast.makeText(this, "画像のパスが見つかりません", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
+
+        // 修正: BitmapFactory.decodeFileがnullを返す可能性に対応
+        val decodedBitmap = BitmapFactory.decodeFile(tempImagePath)
+        if (decodedBitmap == null) {
+            Toast.makeText(this, "画像のデコードに失敗しました", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+        croppedBitmap = decodedBitmap
+        binding.previewImage.setImageBitmap(croppedBitmap)
+
 
         binding.resetButton.setOnClickListener {
             finish()
@@ -59,20 +66,25 @@ class PreviewActivity : AppCompatActivity() {
         val resolver = contentResolver
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
 
-        if (uri != null) {
-            try {
-                resolver.openOutputStream(uri).use { outputStream ->
-                    if (outputStream != null) {
-                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-                        Toast.makeText(this, "画像を保存しました", Toast.LENGTH_SHORT).show()
-                        finish()
-                    }
+        if (uri == null) {
+            Toast.makeText(this, "画像の保存場所を作成できませんでした", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        try {
+            // 修正: より安全な保存処理
+            resolver.openOutputStream(uri).use { outputStream ->
+                if (outputStream == null) {
+                    throw IOException("Failed to get output stream.")
                 }
-            } catch (e: Exception) {
-                Toast.makeText(this, "画像の保存に失敗しました: ${e.message}", Toast.LENGTH_LONG).show()
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
             }
-        } else {
-            Toast.makeText(this, "画像の保存に失敗しました", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "画像を保存しました", Toast.LENGTH_SHORT).show()
+            finish() // 保存が成功したら画面を閉じる
+        } catch (e: Exception) {
+            // 保存に失敗した場合、作成した空のURIを削除してクリーンアップ
+            resolver.delete(uri, null, null)
+            Toast.makeText(this, "画像の保存に失敗しました: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -81,18 +93,18 @@ class PreviewActivity : AppCompatActivity() {
         // 画面が閉じられるときに一時ファイルを削除して、ストレージをクリーンアップする
         tempImagePath?.let {
             try {
+                // 修正: if文を使わずに直接削除を試みる
+                // delete()はファイルが存在しない場合でも例外をスローせず、falseを返すだけなので安全
                 val file = File(it)
-                if (file.exists()) {
-                    file.delete()
-                }
+                file.delete()
             } catch (e: Exception) {
-                Log.e("PreviewActivity", "一時ファイルの削除に失敗しました", e)
+                // セキュリティ例外など、予期せぬ例外をキャッチ
+                Log.e("PreviewActivity", "一時ファイルの削除中に例外が発生しました", e)
             }
         }
     }
 
     companion object {
-        // 渡すデータのキーをパス用に変更
         const val EXTRA_CROPPED_IMAGE_PATH = "cropped_image_path"
     }
 }

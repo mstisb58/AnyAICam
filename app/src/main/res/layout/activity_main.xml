@@ -16,31 +16,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <ImageView
-        android:id="@+id/guide_image"
+    <com.example.tanguecaptureapp.FaceLandmarkerOverlayView
+        android:id="@+id/overlay"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:alpha="0.4"
-        android:scaleType="fitCenter"
-        android:src="@drawable/face_guide"
-        app:layout_constraintBottom_toBottomOf="@id/camera_preview"
-        app:layout_constraintEnd_toEndOf="@id/camera_preview"
-        app:layout_constraintStart_toStartOf="@id/camera_preview"
         app:layout_constraintTop_toTopOf="@id/camera_preview"
-        android:contentDescription="顔のガイド" />
-
-    <View
-        android:id="@+id/crop_guide_view"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:background="@drawable/square_border"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintVertical_bias="0.7"
-        app:layout_constraintWidth_percent="0.3"
-        app:layout_constraintDimensionRatio="1:1" />
+        app:layout_constraintBottom_toBottomOf="@id/camera_preview"
+        app:layout_constraintStart_toStartOf="@id/camera_preview"
+        app:layout_constraintEnd_toEndOf="@id/camera_preview" />
 
     <Button
         android:id="@+id/shutter_button"
@@ -54,5 +37,15 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
+        android:id="@+id/toggle_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:text="表示切替"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

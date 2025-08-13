@@ -8,7 +8,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.tangueccaptureapp" // ご自身のパッケージ名に合わせてください
+        applicationId = "com.example.tanguecaptureapp" // ご自身のパッケージ名に合わせてください
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -56,4 +56,13 @@ dependencies {
     implementation("androidx.camera:camera-camera2:${cameraxVersion}")
     implementation("androidx.camera:camera-lifecycle:${cameraxVersion}")
     implementation("androidx.camera:camera-view:${cameraxVersion}")
+    // ImageAnalysisユースケースに必要
+    implementation("androidx.camera:camera-extensions:${cameraxVersion}")
+    // MediaPipe Vision
+    implementation("com.google.mediapipe:tasks-vision:0.10.9")
+
+    // Test
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 }
