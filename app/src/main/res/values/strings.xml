@@ -1,3 +1,14 @@
+<!-- file: app/src/main/res/values/strings.xml -->
 <resources>
-    <string name="app_name">TangueCaptureApp</string>
+    <string name="app_name">MPdetector</string>
+
+    <!-- MainActivity -->
+    <string name="select_model">モデルを選択</string>
+    <string name="capture_button_alt">撮影ボタン</string>
+
+    <!-- PreviewActivity -->
+    <string name="cropped_image_preview">切り抜かれた画像のプレビュー</string>
+    <string name="enter_file_name">ファイル名を入力</string>
+    <string name="save">保存</string>
+    <string name="back">戻る</string>
 </resources>

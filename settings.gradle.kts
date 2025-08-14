@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TangueCaptureApp"
+rootProject.name = "MPdetector"
 include(":app")

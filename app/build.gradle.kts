@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.tanguecaptureapp" // ご自身のパッケージ名に合わせてください
+    namespace = "com.example.MPdetector" // ご自身のパッケージ名に合わせてください
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.tanguecaptureapp" // ご自身のパッケージ名に合わせてください
+        applicationId = "com.example.MPdetector" // ご自身のパッケージ名に合わせてください
         minSdk = 26
         targetSdk = 34
         versionCode = 1
