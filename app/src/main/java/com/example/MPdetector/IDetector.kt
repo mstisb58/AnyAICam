@@ -7,14 +7,6 @@ import android.graphics.RectF
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
 
-/**
- * 検出結果をMainActivityに渡すためのデータクラス
- */
-data class DetectionResult(
-    val boundingBox: RectF,
-    val status: String,
-    val landmarks: FaceLandmarkerResult? = null
-)
 
 /**
  * 検出器のインターフェース

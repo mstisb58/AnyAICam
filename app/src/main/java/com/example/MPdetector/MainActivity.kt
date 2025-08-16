@@ -4,8 +4,15 @@ package com.example.MPdetector
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
+import android.graphics.Bitmap // これが正しいBitmap
+import android.graphics.Canvas // ★★★ android.graphics.Canvas に変更 ★★★
+import android.graphics.Color // ★★★ android.graphics.Color に変更 ★★★
 import android.graphics.Matrix
+import android.graphics.Paint // ★★★ android.graphics.Paint に変更 ★★★
+import android.graphics.Path // ★★★ android.graphics.Path に変更 ★★★
+import android.graphics.PointF // ★★★ android.graphics.PointF を確認 ★★★
+import android.graphics.PorterDuff // ★★★ PorterDuff をインポート ★★★
+import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import android.os.Bundle
 import android.util.Log
@@ -19,14 +26,15 @@ import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.transform
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-// ★★★ このimport文が、XMLのIDを解決するために不可欠です ★★★
-import com.example.MPdetector.R
+import com.example.MPdetector.ShapeBoundary
+import kotlin.io.path.moveTo
 
 class MainActivity : AppCompatActivity() {
 
@@ -174,7 +182,22 @@ class MainActivity : AppCompatActivity() {
                         return
                     }
 
-                    val croppedBitmap = cropBitmap(capturedBitmap, result.boundingBox)
+                    if (result.boundary == null || result.boundary.points.isEmpty()) {
+                        runOnUiThread { Toast.makeText(this@MainActivity, "検出結果に有効な境界情報がありません", Toast.LENGTH_SHORT).show() }
+                        return
+                    }
+
+                    // ★★★ 新しい cropBitmapWithRotationAndPadding を使用 ★★★
+                    val croppedBitmap = cropBitmapWithRotationAndPadding(
+                        capturedBitmap,
+                        result.boundary, // ShapeBoundary を渡す
+                        result.rotationAngle // 回転角度を渡す
+                    )
+
+                    if (croppedBitmap == null) {
+                        runOnUiThread { Toast.makeText(this@MainActivity, "画像のクロップまたは回転に失敗しました", Toast.LENGTH_SHORT).show() }
+                        return
+                    }
                     saveAndLaunchPreview(croppedBitmap)
                 }
 
@@ -196,13 +219,19 @@ class MainActivity : AppCompatActivity() {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
-    private fun cropBitmap(source: Bitmap, normalizedBoundingBox: RectF): Bitmap {
+    private fun cropBitmap(source: Bitmap, normalizedBoundingBox: RectF): Bitmap? {
+        if (normalizedBoundingBox.width() < 0 || normalizedBoundingBox.height() < 0) {
+            return null
+        }
         val cropRect = RectF(
             normalizedBoundingBox.left * source.width,
             normalizedBoundingBox.top * source.height,
             normalizedBoundingBox.right * source.width,
             normalizedBoundingBox.bottom * source.height
         )
+        if (cropRect.width() < 0 || cropRect.height() < 0) {
+            return null
+        }
         return Bitmap.createBitmap(
             source,
             cropRect.left.toInt().coerceAtLeast(0),
@@ -211,6 +240,129 @@ class MainActivity : AppCompatActivity() {
             cropRect.height().toInt().coerceAtMost(source.height - cropRect.top.toInt())
         )
     }
+
+    private fun cropBitmapWithRotationAndPadding(
+        originalBitmap: Bitmap,
+        shapeBoundary: ShapeBoundary,
+        rotationDegrees: Float // This is the angle to *undo* the rotation of the shape
+    ): Bitmap? {
+        if (shapeBoundary.points.isEmpty()) {
+            Log.e(TAG, "ShapeBoundary has no points.")
+            return null
+        }
+
+        val originalWidth = originalBitmap.width
+        val originalHeight = originalBitmap.height
+
+        // 1. Convert normalized points from ShapeBoundary to pixel coordinates in the originalBitmap
+        val pixelPointsOriginal = shapeBoundary.points.map {
+            android.graphics.PointF(it.x * originalWidth, it.y * originalHeight)
+        }
+        Log.d(TAG, "PixelPoints (in originalBitmap): $pixelPointsOriginal")
+        if (pixelPointsOriginal.isEmpty()) return null
+
+        // 2. Calculate the center of the shape in the originalBitmap
+        val shapePathOriginal = Path()
+        pixelPointsOriginal.forEachIndexed { i, p -> if (i == 0) shapePathOriginal.moveTo(p.x, p.y) else shapePathOriginal.lineTo(p.x, p.y) }
+        shapePathOriginal.close()
+        val shapeBoundsOriginal = RectF()
+        shapePathOriginal.computeBounds(shapeBoundsOriginal, true)
+        val shapeCenterXOriginal = shapeBoundsOriginal.centerX()
+        val shapeCenterYOriginal = shapeBoundsOriginal.centerY()
+        Log.d(TAG, "ShapeCenter (in originalBitmap): ($shapeCenterXOriginal, $shapeCenterYOriginal)")
+        Log.d(TAG, "ShapeBounds (in originalBitmap): $shapeBoundsOriginal")
+
+
+        // 3. Determine the dimensions of the new bitmap by rotating the original shape's path
+        //    This rotation is to find the bounding box of the shape *after it's uprighted*.
+        val matrixForBoundsCalculation = Matrix()
+        // Rotate around the shape's own center in the original image
+        matrixForBoundsCalculation.setRotate(-rotationDegrees, shapeCenterXOriginal, shapeCenterYOriginal)
+
+        val uprightShapePath = Path()
+        shapePathOriginal.transform(matrixForBoundsCalculation, uprightShapePath)
+        val uprightShapeBounds = RectF() // Bounds of the shape *after* being counter-rotated
+        uprightShapePath.computeBounds(uprightShapeBounds, true)
+
+        val newWidth = uprightShapeBounds.width().toInt()
+        val newHeight = uprightShapeBounds.height().toInt()
+        Log.d(TAG, "New Bitmap Dimensions (for upright shape): $newWidth x $newHeight")
+        Log.d(TAG, "Upright Shape Bounds (in originalBitmap's coord system, but rotated): $uprightShapeBounds")
+
+
+        if (newWidth <= 0 || newHeight <= 0) {
+            Log.e(TAG, "Invalid new dimensions after rotation: $newWidth x $newHeight")
+            return null
+        }
+
+        val resultBitmap = Bitmap.createBitmap(newWidth, newHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(resultBitmap)
+        canvas.drawColor(Color.WHITE) // Fill background
+
+        // 4. Construct the transformation matrix (drawMatrix)
+        // This matrix will transform originalBitmap content to be drawn on resultBitmap.
+        // The goal: the shape (defined by pixelPointsOriginal) should appear
+        // counter-rotated by `rotationDegrees` and centered in the `resultBitmap`.
+
+        val drawMatrix = Matrix()
+
+        // Step 4a: Translate the shape's center in originalBitmap to origin (0,0)
+        drawMatrix.postTranslate(-shapeCenterXOriginal, -shapeCenterYOriginal)
+        Log.d(TAG, "drawMatrix after translate to origin: $drawMatrix")
+
+        // Step 4b: Rotate around origin (this counter-rotates the shape)
+        drawMatrix.postRotate(-rotationDegrees) // rotationDegrees is the angle to UN-rotate
+        Log.d(TAG, "drawMatrix after rotate: $drawMatrix")
+
+        // Step 4c: Translate the (now uprighted) shape so its center is at the center of resultBitmap.
+        // The shape was centered at (0,0) after 4a and rotated around (0,0) in 4b.
+        // So, its center is still effectively at (0,0) in its local rotated coordinate system.
+        // We want to move this (0,0) to (newWidth/2, newHeight/2) in resultBitmap.
+        drawMatrix.postTranslate(newWidth / 2f, newHeight / 2f)
+        Log.d(TAG, "drawMatrix after translate to new center: $drawMatrix")
+
+        // --- Drawing and Masking (using saveLayer for PorterDuff) ---
+        val imagePaint = Paint().apply { isAntiAlias = true; flags = flags or Paint.FILTER_BITMAP_FLAG }
+        val layerRect = RectF(0f, 0f, newWidth.toFloat(), newHeight.toFloat())
+        val saveCount = canvas.saveLayer(layerRect, null)
+
+        canvas.drawBitmap(originalBitmap, drawMatrix, imagePaint)
+        Log.d(TAG, "Drew originalBitmap onto layer.")
+
+        val maskPath = Path()
+        // Transform the original shape points using the final drawMatrix
+        // These points should now form the uprighted shape, centered in resultBitmap.
+        val transformedPointsForMask = pixelPointsOriginal.map { originalPoint ->
+            val pts = floatArrayOf(originalPoint.x, originalPoint.y)
+            drawMatrix.mapPoints(pts)
+            PointF(pts[0], pts[1])
+        }
+        Log.d(TAG, "Transformed Points for Mask (should be uprighted and centered): $transformedPointsForMask")
+
+        if (transformedPointsForMask.isNotEmpty()) {
+            transformedPointsForMask.forEachIndexed { i, p -> if (i == 0) maskPath.moveTo(p.x, p.y) else maskPath.lineTo(p.x, p.y) }
+            maskPath.close()
+
+            val maskPaint = Paint().apply {
+                isAntiAlias = true
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+            }
+            canvas.drawPath(maskPath, maskPaint)
+            Log.d(TAG, "Applied mask path with DST_IN.")
+
+            val debugMaskPaint = Paint().apply {
+                color = Color.BLUE; style = Paint.Style.STROKE; strokeWidth = 3f; isAntiAlias = true
+            }
+            canvas.drawPath(maskPath, debugMaskPaint) // Draw debug line on top
+            Log.d(TAG, "Drew debug mask path outline.")
+        }
+
+        canvas.restoreToCount(saveCount)
+        // --- End Drawing and Masking ---
+
+        return resultBitmap
+    }
+
 
     private fun saveAndLaunchPreview(bitmap: Bitmap) {
         try {
