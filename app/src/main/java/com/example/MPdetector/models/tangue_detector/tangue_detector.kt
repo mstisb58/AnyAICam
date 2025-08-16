@@ -28,6 +28,8 @@ class TangueDetector : IDetector {
         return createDummyResult()
     }
 
+
+
     override fun detectLiveStream(imageBitmap: Bitmap, imageHeight: Int, imageWidth: Int) {
         // ダミーデータをリアルタイムに送り続けると仮定
         val dummyResult = createDummyResult()
