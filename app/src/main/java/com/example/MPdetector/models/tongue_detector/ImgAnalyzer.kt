@@ -3,7 +3,10 @@ package com.example.MPdetector.models.tongue_detector
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.Log
 import com.example.MPdetector.ImgProcessor
+// ### 修正箇所: importパスを変更 ###
+import com.example.MPdetector.models.tongue_detector.TfliteHelper
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.core.BaseOptions
@@ -16,9 +19,10 @@ import kotlin.math.*
 
 class ImgAnalyzer : ImgProcessor {
     override val name: String = "Tongue"
-    override val saveDirectoryName: String = "TongueDetector" // このプロセッサ用の保存先フォルダ名
+    override val saveDirectoryName: String = "TongueDetector"
 
     private var faceLandmarker: FaceLandmarker? = null
+    private var tfliteHelper: TfliteHelper? = null
 
     private val MOUTH_LEFT_CORNER = 61
     private val MOUTH_RIGHT_CORNER = 291
@@ -30,18 +34,24 @@ class ImgAnalyzer : ImgProcessor {
         val length: Float
     )
 
-    // ImgProcessorインターフェースのsetupメソッドをオーバーライド
     override fun setup(context: Context) {
         if (faceLandmarker == null) {
-            val baseOptions = BaseOptions.builder()
-                .setModelAssetPath("mediapipe/face_landmarker.task")
-                .build()
-            val options = FaceLandmarker.FaceLandmarkerOptions.builder()
-                .setBaseOptions(baseOptions)
-                .setRunningMode(RunningMode.IMAGE)
-                .setNumFaces(1)
-                .build()
-            faceLandmarker = FaceLandmarker.createFromOptions(context, options)
+            try {
+                val baseOptions = BaseOptions.builder()
+                    .setModelAssetPath("mediapipe/face_landmarker.task")
+                    .build()
+                val options = FaceLandmarker.FaceLandmarkerOptions.builder()
+                    .setBaseOptions(baseOptions)
+                    .setRunningMode(RunningMode.IMAGE)
+                    .setNumFaces(1)
+                    .build()
+                faceLandmarker = FaceLandmarker.createFromOptions(context, options)
+            } catch (e: Exception) {
+                Log.e("TongueImgAnalyzer", "Failed to initialize FaceLandmarker", e)
+            }
+        }
+        if (tfliteHelper == null) {
+            tfliteHelper = TfliteHelper(context)
         }
     }
 
@@ -58,12 +68,37 @@ class ImgAnalyzer : ImgProcessor {
         if (results != null && results.faceLandmarks().isNotEmpty()) {
             for (landmarks in results.faceLandmarks()) {
                 val info = calculateTongueSquare(landmarks, outputFrame.cols(), outputFrame.rows())
+
+                val rotMat = Imgproc.getRotationMatrix2D(info.center, info.angleDegrees.toDouble(), 1.0)
+                val rotatedMat = Mat()
+                Imgproc.warpAffine(outputFrame, rotatedMat, rotMat, outputFrame.size())
+                rotMat.release()
+
+                val cropX = (info.center.x - info.length / 2).toInt()
+                val cropY = info.center.y.toInt()
+                val cropSize = info.length.toInt()
+
+                if (cropX >= 0 && cropY >= 0 && cropX + cropSize <= rotatedMat.width() && cropY + cropSize <= rotatedMat.height()) {
+                    val croppedImg = Mat(rotatedMat, Rect(cropX, cropY, cropSize, cropSize))
+                    status = stateDiscriminator(croppedImg)
+                    croppedImg.release()
+                }
+
+                rotatedMat.release()
+
+                val color = if (status) Scalar(0.0, 255.0, 0.0) else Scalar(255.0, 0.0, 0.0)
                 val points = MatOfPoint(*info.points.toTypedArray())
-                Imgproc.polylines(outputFrame, listOf(points), true, Scalar(0.0, 255.0, 255.0), 2)
-                status = true
+                Imgproc.polylines(outputFrame, listOf(points), true, color, 3)
             }
         }
         return Pair(outputFrame, status)
+    }
+
+    private fun stateDiscriminator(croppedImg: Mat): Boolean {
+        if (tfliteHelper == null) return false
+        val bitmap = Bitmap.createBitmap(croppedImg.cols(), croppedImg.rows(), Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(croppedImg, bitmap)
+        return tfliteHelper!!.classify(bitmap)
     }
 
     override fun processFrameForSaving(frame: Bitmap): Bitmap {
@@ -84,6 +119,7 @@ class ImgAnalyzer : ImgProcessor {
             val rotMat = Imgproc.getRotationMatrix2D(info.center, info.angleDegrees.toDouble(), 1.0)
             val rotatedMat = Mat()
             Imgproc.warpAffine(originalMat, rotatedMat, rotMat, Size(imageWidth.toDouble(), imageHeight.toDouble()))
+            rotMat.release()
 
             val cropX = (info.center.x - info.length / 2).toInt()
             val cropY = info.center.y.toInt()
@@ -93,8 +129,14 @@ class ImgAnalyzer : ImgProcessor {
                 val croppedMat = Mat(rotatedMat, Rect(cropX, cropY, cropSize, cropSize))
                 val resultBitmap = Bitmap.createBitmap(croppedMat.cols(), croppedMat.rows(), Bitmap.Config.ARGB_8888)
                 Utils.matToBitmap(croppedMat, resultBitmap)
+
+                originalMat.release()
+                rotatedMat.release()
+                croppedMat.release()
                 return resultBitmap
             }
+            originalMat.release()
+            rotatedMat.release()
         }
         return frame
     }
