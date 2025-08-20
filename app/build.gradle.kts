@@ -36,7 +36,6 @@ android {
     buildFeatures {
         viewBinding = true // ViewBindingを有効化
     }
-    buildToolsVersion = "36.0.0"
 }
 
 dependencies {
@@ -60,6 +59,15 @@ dependencies {
     implementation("androidx.camera:camera-extensions:${cameraxVersion}")
     // MediaPipe Vision
     implementation("com.google.mediapipe:tasks-vision:0.10.9")
+
+    // OpenCV
+    implementation("org.opencv:opencv:4.9.0")
+
+    // Guava for ListenableFuture
+    implementation("com.google.guava:guava:33.2.1-android")
+
+    // Fragment KTX for activityViewModels
+    implementation("androidx.fragment:fragment-ktx:1.7.1")
 
     // Test
     testImplementation("junit:junit:4.13.2")
