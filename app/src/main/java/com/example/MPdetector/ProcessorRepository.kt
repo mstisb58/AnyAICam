@@ -12,8 +12,10 @@ object ProcessorRepository {
     // 新しいプロセッサを追加する際は、このリストに「完全修飾クラス名」の文字列を追加します。
     private val processorClassNames = listOf(
         "com.example.MPdetector.models.raw.ImgAnalyzer",
+        "com.example.MPdetector.models.face_detector.ImgAnalyzer",
+        "com.example.MPdetector.models.pose_detector.ImgAnalyzer",
+        "com.example.MPdetector.models.tongue_detector.ImgAnalyzer",
         "com.example.MPdetector.models.wink_detector.ImgAnalyzer",
-        "com.example.MPdetector.models.tongue_detector.ImgAnalyzer"
     )
 
     private var cachedProcessors: List<ImgProcessor>? = null

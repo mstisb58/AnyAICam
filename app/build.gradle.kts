@@ -15,6 +15,10 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     buildTypes {
@@ -58,7 +62,7 @@ dependencies {
     // ImageAnalysisユースケースに必要
     implementation("androidx.camera:camera-extensions:${cameraxVersion}")
     // MediaPipe Vision
-    implementation("com.google.mediapipe:tasks-vision:0.10.9")
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
 
     // OpenCV
     implementation("org.opencv:opencv:4.9.0")

@@ -5,8 +5,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.example.MPdetector.ImgProcessor
-// ### 修正箇所: importパスを変更 ###
-import com.example.MPdetector.models.tongue_detector.TfliteHelper
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.core.BaseOptions
@@ -22,7 +20,6 @@ class ImgAnalyzer : ImgProcessor {
     override val saveDirectoryName: String = "TongueDetector"
 
     private var faceLandmarker: FaceLandmarker? = null
-    private var tfliteHelper: TfliteHelper? = null
 
     private val MOUTH_LEFT_CORNER = 61
     private val MOUTH_RIGHT_CORNER = 291
@@ -50,9 +47,6 @@ class ImgAnalyzer : ImgProcessor {
                 Log.e("TongueImgAnalyzer", "Failed to initialize FaceLandmarker", e)
             }
         }
-        if (tfliteHelper == null) {
-            tfliteHelper = TfliteHelper(context)
-        }
     }
 
     override fun processFrameForDisplay(frame: Mat): Pair<Mat, Boolean> {
@@ -64,14 +58,15 @@ class ImgAnalyzer : ImgProcessor {
         val mpImage = BitmapImageBuilder(bmp).build()
         val results = faceLandmarker?.detect(mpImage)
 
-        var status = false
+        var result = 1 // Default to 1 (not found)
         if (results != null && results.faceLandmarks().isNotEmpty()) {
             for (landmarks in results.faceLandmarks()) {
                 val info = calculateTongueSquare(landmarks, outputFrame.cols(), outputFrame.rows())
 
                 val rotMat = Imgproc.getRotationMatrix2D(info.center, info.angleDegrees.toDouble(), 1.0)
                 val rotatedMat = Mat()
-                Imgproc.warpAffine(outputFrame, rotatedMat, rotMat, outputFrame.size())
+                // Use the original frame for analysis, not the cloned outputFrame
+                Imgproc.warpAffine(frame, rotatedMat, rotMat, frame.size())
                 rotMat.release()
 
                 val cropX = (info.center.x - info.length / 2).toInt()
@@ -80,25 +75,79 @@ class ImgAnalyzer : ImgProcessor {
 
                 if (cropX >= 0 && cropY >= 0 && cropX + cropSize <= rotatedMat.width() && cropY + cropSize <= rotatedMat.height()) {
                     val croppedImg = Mat(rotatedMat, Rect(cropX, cropY, cropSize, cropSize))
-                    status = stateDiscriminator(croppedImg)
+                    if (croppedImg.width() > 0 && croppedImg.height() > 0) {
+                        result = stateDiscriminator(croppedImg)
+                    }
                     croppedImg.release()
                 }
 
                 rotatedMat.release()
 
-                val color = if (status) Scalar(0.0, 255.0, 0.0) else Scalar(255.0, 0.0, 0.0)
+                // Draw the box on the output frame
+                val status = result == 0
+                val color = if (status) Scalar(0.0, 0.0, 0.0) else Scalar(255.0, 255.0, 255.0) // Green for true, White for false
                 val points = MatOfPoint(*info.points.toTypedArray())
-                Imgproc.polylines(outputFrame, listOf(points), true, color, 3)
+                Imgproc.polylines(outputFrame, listOf(points), true, color, 1)
+
+                // Display the result value for debugging
+                val text = "Result: $result"
+                // Place text near the top-left corner of the box
+                val textOrigin = Point(info.points.minOf { it.x }, info.points.minOf { it.y } - 10)
+                Imgproc.putText(
+                    outputFrame,
+                    text,
+                    textOrigin,
+                    Imgproc.FONT_HERSHEY_SIMPLEX,
+                    1.0, // Font scale
+                    Scalar(0.0, 255.0, 255.0), // Yellow color
+                    2 // Thickness
+                )
             }
         }
+        val status = true
         return Pair(outputFrame, status)
     }
 
-    private fun stateDiscriminator(croppedImg: Mat): Boolean {
-        if (tfliteHelper == null) return false
-        val bitmap = Bitmap.createBitmap(croppedImg.cols(), croppedImg.rows(), Bitmap.Config.ARGB_8888)
-        Utils.matToBitmap(croppedImg, bitmap)
-        return tfliteHelper!!.classify(bitmap)
+    private fun stateDiscriminator(croppedImg: Mat): Int {
+        val hsvMat = Mat()
+        Imgproc.cvtColor(croppedImg, hsvMat, Imgproc.COLOR_BGR2HSV)
+
+        // Define lower and upper bounds for reddish/pinkish tones (tongue color) in HSV
+        // OpenCV HSV ranges: H: 0-180, S: 0-255, V: 0-255
+        // Red can wrap around 0 and 180, so we check two ranges
+        // 赤は0付近なので0の前後で設定するからしきい値はふたつ
+        val lowerRed1 = Scalar(0.0, 40.0, 50.0)
+        val upperRed1 = Scalar(50.0, 255.0, 255.0)
+        val lowerRed2 = Scalar(140.0, 40.0, 50.0)
+        val upperRed2 = Scalar(180.0, 255.0, 255.0)
+
+        val mask1 = Mat()
+        val mask2 = Mat()
+        Core.inRange(hsvMat, lowerRed1, upperRed1, mask1)
+        Core.inRange(hsvMat, lowerRed2, upperRed2, mask2)
+
+        val combinedMask = Mat()
+        Core.add(mask1, mask2, combinedMask)
+
+        // Clean up the mask a bit with morphological operations
+        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(3.0, 3.0))
+        Imgproc.morphologyEx(combinedMask, combinedMask, Imgproc.MORPH_OPEN, kernel)
+        Imgproc.morphologyEx(combinedMask, combinedMask, Imgproc.MORPH_CLOSE, kernel)
+        kernel.release()
+
+        val matchingPixels = Core.countNonZero(combinedMask)
+        val totalPixels = croppedImg.rows() * croppedImg.cols()
+
+        hsvMat.release()
+        mask1.release()
+        mask2.release()
+        combinedMask.release()
+
+        if (totalPixels == 0) return 1 // Avoid division by zero, return "not found"
+
+        val percentage = (matchingPixels.toDouble() / totalPixels) * 100.0
+
+        return if (percentage >= 50.0) 0 else 1
     }
 
     override fun processFrameForSaving(frame: Bitmap): Bitmap {

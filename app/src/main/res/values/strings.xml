@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ImageAI </string>
+    <string name="app_name">AnyAICamera</string>
     <string name="overlay_image">Overlay image</string>
     <string name="switch_camera">Switch camera</string>
     <string name="shutter_button">Shutter button</string>
