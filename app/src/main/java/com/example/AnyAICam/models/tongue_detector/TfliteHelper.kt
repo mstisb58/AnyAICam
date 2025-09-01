@@ -1,5 +1,5 @@
 // models/tongue_detector/TfliteHelper.kt
-package com.example.MPdetector.models.tongue_detector
+package com.example.AnyAICam.models.tongue_detector
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -20,7 +20,7 @@ class TfliteHelper(context: Context) {
 
     init {
         try {
-            val model = FileUtil.loadMappedFile(context, "checker/tongue_checket.tflite")
+            val model = FileUtil.loadMappedFile(context, "checker/tongue_checker.tflite")
             val options = Interpreter.Options()
             val nnApiDelegate = NnApiDelegate()
             options.addDelegate(nnApiDelegate)
@@ -30,7 +30,7 @@ class TfliteHelper(context: Context) {
             Log.e("TfliteHelper", "Error loading model with NNAPI delegate", e)
             // Fallback to CPU
             try {
-                val model = FileUtil.loadMappedFile(context, "checker/tongue_checket.tflite")
+                val model = FileUtil.loadMappedFile(context, "checker/tongue_checker.tflite")
                 interpreter = Interpreter(model, Interpreter.Options())
                 Log.i("TfliteHelper", "Fell back to CPU interpreter.")
             } catch (ioe: IOException) {
@@ -51,7 +51,7 @@ class TfliteHelper(context: Context) {
         tensorImage.load(bitmap)
         tensorImage = imageProcessor.process(tensorImage)
 
-        val outputBuffer = Array(1) { FloatArray(3) } // 3 classes (0, 1, 2)
+        val outputBuffer = Array(1) { FloatArray(2) } // 2 classes
 
         try {
             interpreter?.run(tensorImage.buffer, outputBuffer)

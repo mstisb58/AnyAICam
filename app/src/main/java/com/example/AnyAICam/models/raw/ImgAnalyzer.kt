@@ -1,8 +1,8 @@
 // models/raw/ImgAnalyzer.kt
-package com.example.MPdetector.models.raw
+package com.example.AnyAICam.models.raw
 
 import android.graphics.Bitmap
-import com.example.MPdetector.ImgProcessor
+import com.example.AnyAICam.ImgProcessor
 import org.opencv.core.Mat
 
 /**

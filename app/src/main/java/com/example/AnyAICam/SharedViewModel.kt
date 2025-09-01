@@ -1,5 +1,5 @@
 // SharedViewModel.kt
-package com.example.MPdetector
+package com.example.AnyAICam
 
 import android.graphics.Bitmap
 import androidx.lifecycle.LiveData

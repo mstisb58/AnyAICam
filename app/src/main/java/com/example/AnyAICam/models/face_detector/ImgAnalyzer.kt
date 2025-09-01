@@ -1,10 +1,10 @@
 // models/face_detector/ImgAnalyzer.kt
-package com.example.MPdetector.models.face_detector
+package com.example.AnyAICam.models.face_detector
 
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.example.MPdetector.ImgProcessor
+import com.example.AnyAICam.ImgProcessor
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.core.BaseOptions

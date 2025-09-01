@@ -1,4 +1,4 @@
-package com.example.MPdetector
+package com.example.AnyAICam
 
 import org.junit.Test
 

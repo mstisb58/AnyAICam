@@ -1,4 +1,4 @@
-package com.example.MPdetector
+package com.example.AnyAICam
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

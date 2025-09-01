@@ -1,5 +1,5 @@
 // ProcessorSelectionDialogFragment.kt
-package com.example.MPdetector
+package com.example.AnyAICam
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -8,8 +8,8 @@ import android.view.ViewGroup
 import androidx.fragment.app.DialogFragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.MPdetector.databinding.DialogProcessorSelectionBinding
-import com.example.MPdetector.databinding.ListItemProcessorBinding
+import com.example.AnyAICam.databinding.DialogProcessorSelectionBinding
+import com.example.AnyAICam.databinding.ListItemProcessorBinding
 import java.util.Collections
 
 interface ProcessorSelectionListener {

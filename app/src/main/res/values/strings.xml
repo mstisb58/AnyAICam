@@ -5,4 +5,5 @@
     <string name="switch_camera">Switch camera</string>
     <string name="shutter_button">Shutter button</string>
     <string name="select_processors_0">Select Processors (0)</string>
+    <string name="record_video">Record video</string>
 </resources>

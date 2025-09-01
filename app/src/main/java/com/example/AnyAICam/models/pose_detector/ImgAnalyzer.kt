@@ -1,10 +1,10 @@
 // このファイルは pose_detector ディレクトリに配置されることを想定
-package com.example.MPdetector.models.pose_detector // パッケージ名も環境に合わせて変更してください
+package com.example.AnyAICam.models.pose_detector // パッケージ名も環境に合わせて変更してください
 
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.example.MPdetector.ImgProcessor
+import com.example.AnyAICam.ImgProcessor
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.core.BaseOptions

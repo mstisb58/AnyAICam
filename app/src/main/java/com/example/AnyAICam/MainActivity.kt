@@ -1,9 +1,9 @@
 //MainActivity.kt
-package com.example.MPdetector
+package com.example.AnyAICam
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import com.example.MPdetector.databinding.ActivityMainBinding
+import com.example.AnyAICam.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 

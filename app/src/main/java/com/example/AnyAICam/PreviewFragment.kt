@@ -1,5 +1,5 @@
 // PreviewFragment.kt
-package com.example.MPdetector
+package com.example.AnyAICam
 
 import android.content.ContentValues
 import android.graphics.Bitmap
@@ -18,8 +18,8 @@ import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.MPdetector.databinding.FragmentPreviewBinding
-import com.example.MPdetector.databinding.PreviewItemBinding
+import com.example.AnyAICam.databinding.FragmentPreviewBinding
+import com.example.AnyAICam.databinding.PreviewItemBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

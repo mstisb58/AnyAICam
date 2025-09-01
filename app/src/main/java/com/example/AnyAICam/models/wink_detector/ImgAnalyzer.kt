@@ -1,13 +1,10 @@
-package com.example.MPdetector.models.wink_detector
+package com.example.AnyAICam.models.wink_detector
 
 import android.graphics.Bitmap
-import com.example.MPdetector.ImgProcessor
+import com.example.AnyAICam.ImgProcessor
 import org.opencv.core.Mat
-import org.opencv.core.Point
 import org.opencv.core.Scalar
 import org.opencv.imgproc.Imgproc
-import kotlin.math.cos
-import kotlin.math.sin
 
 class ImgAnalyzer : ImgProcessor {
     override val name: String = "Wink"

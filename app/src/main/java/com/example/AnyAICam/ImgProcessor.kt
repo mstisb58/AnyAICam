@@ -1,10 +1,9 @@
 // ImgProcessor.kt
-package com.example.MPdetector
+package com.example.AnyAICam
 
 import android.content.Context
 import android.graphics.Bitmap
 import org.opencv.core.Mat
-import java.io.File
 
 /**
  * すべての画像処理モジュールが実装するインターフェース。
