@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MPdetector"
+rootProject.name = "AnyAICam"
 include(":app")

@@ -117,6 +117,6 @@
 1.  **パッケージの作成**: `models`ディレクトリ内に、新しい機能の名前でパッケージを作成します。（例：`models/smile_detector`）
 2.  **`ImgAnalyzer`の実装**: 新しいパッケージ内に`ImgAnalyzer.kt`を作成し、`ImgProcessor`インターフェースを実装します。`name`や`saveDirectoryName`を定義し、`processFrameForDisplay`と`processFrameForSaving`に独自の画像処理ロジックを記述します。
 3.  **モデルの配置(任意)**: もし機械学習モデルを使用する場合は、`assets`フォルダ内にモデルファイル（`.tflite`など）を配置し、`setup()`メソッド内で読み込むようにします。
-4.  **`Repository`への登録**: `ProcessorRepository.kt`を開き、`processorClassNames`リストに、新しく作成した`ImgAnalyzer`の完全修飾クラス名（例：`"com.example.MPdetector.models.smile_detector.ImgAnalyzer"`）を文字列として1行追加します。
+4.  **`Repository`への登録**: `ProcessorRepository.kt`を開き、`processorClassNames`リストに、新しく作成した`ImgAnalyzer`の完全修飾クラス名（例：`"com.example.AnyAICam.models.smile_detector.ImgAnalyzer"`）を文字列として1行追加します。
 
 以上の手順だけで、アプリを再起動すると、新しいプロセッサが選択画面に自動的に表示され、利用可能になります。

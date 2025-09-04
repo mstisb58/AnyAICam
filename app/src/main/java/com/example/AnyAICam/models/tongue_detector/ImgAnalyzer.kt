@@ -18,6 +18,7 @@ import kotlin.math.*
 class ImgAnalyzer : ImgProcessor {
     override val name: String = "Tongue"
     override val saveDirectoryName: String = "TongueDetector"
+    override var isDummyPreviewEnabled: Boolean = false
 
     private var faceLandmarker: FaceLandmarker? = null
     private var tfliteHelper: TfliteHelper? = null // TfliteHelperを追加
@@ -88,7 +89,8 @@ class ImgAnalyzer : ImgProcessor {
                 }
                 rotatedMat.release()
 
-                status = result == 0 // resultが0の場合のみstatusがtrue
+                //status = result == 0 // ai判定実装時、resultが0の場合のみstatusがtrueを返す
+                status = true //ダミーで常にtrueを返す
 
                 // Draw the box on the output frame
                 val color = if (status) Scalar(0.0, 255.0, 0.0) else Scalar(255.0, 0.0, 0.0) // Green for true, Blue for false

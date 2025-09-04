@@ -12,6 +12,7 @@ import org.opencv.core.Mat
 class ImgAnalyzer : ImgProcessor {
     override val name: String = "Raw"
     override val saveDirectoryName: String = "Raw"
+    override var isDummyPreviewEnabled: Boolean = false
 
     /**
      * リアルタイム表示用の処理。

@@ -21,6 +21,12 @@ interface ImgProcessor {
     val saveDirectoryName: String
 
     /**
+     * このプロセッサーでダミープレビューが有効になっているかどうかのフラグ。
+     * このフラグの状態は、UI（モデル選択ダイアログなど）によって変更されます。
+     */
+    var isDummyPreviewEnabled: Boolean
+
+    /**
      * 初期化処理。モデルの読み込みなど、重い処理をここで行います。
      * @param context アプリケーションコンテキスト。アセットファイルの読み込みなどに使用します。
      */
@@ -45,4 +51,6 @@ interface ImgProcessor {
      * @return 処理後の画像 (Bitmap形式)
      */
     fun processFrameForSaving(frame: Bitmap): Bitmap
+
+    
 }

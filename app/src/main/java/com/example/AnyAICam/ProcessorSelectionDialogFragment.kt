@@ -47,6 +47,14 @@ class ProcessorSelectionDialogFragment(
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        dialog?.window?.let {
+            val width = (resources.displayMetrics.widthPixels * 0.90).toInt()
+            it.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
@@ -70,10 +78,32 @@ class ProcessorAdapter(
     override fun onBindViewHolder(holder: ProcessorViewHolder, position: Int) {
         val processor = displayList[position]
         holder.binding.processorName.text = processor.name
-        holder.binding.processorCheckbox.isChecked = selectedStatus[processor] ?: false
 
+        // Set initial states
+        val isSelected = selectedStatus[processor] ?: false
+        holder.binding.processorCheckbox.isChecked = isSelected
+        holder.binding.dummyPreviewSwitch.isChecked = processor.isDummyPreviewEnabled
+        // The dummy switch is enabled only when the processor is selected
+        holder.binding.dummyPreviewSwitch.isEnabled = isSelected
+
+        // Listener for the main selection checkbox
         holder.binding.processorCheckbox.setOnCheckedChangeListener { _, isChecked ->
             selectedStatus[processor] = isChecked
+            // Enable/disable the dummy preview switch based on the main selection
+            holder.binding.dummyPreviewSwitch.isEnabled = isChecked
+            // If unchecked, also turn off the dummy preview setting
+            if (!isChecked) {
+                processor.isDummyPreviewEnabled = false
+                holder.binding.dummyPreviewSwitch.isChecked = false
+            }
+        }
+
+        // Listener for the dummy preview switch
+        holder.binding.dummyPreviewSwitch.setOnCheckedChangeListener { _, isChecked ->
+            // Only allow toggling if the processor itself is selected
+            if (holder.binding.processorCheckbox.isChecked) {
+                processor.isDummyPreviewEnabled = isChecked
+            }
         }
 
         holder.binding.buttonUp.visibility = if (position > 0) View.VISIBLE else View.INVISIBLE
@@ -84,8 +114,6 @@ class ProcessorAdapter(
             if (fromPosition > 0) {
                 val toPosition = fromPosition - 1
                 Collections.swap(displayList, fromPosition, toPosition)
-                // ### 修正箇所 ###
-                // 2つのアイテムが変更されたことを通知し、再描画させる
                 notifyItemRangeChanged(toPosition, 2)
             }
         }
@@ -95,8 +123,6 @@ class ProcessorAdapter(
             if (fromPosition < displayList.size - 1) {
                 val toPosition = fromPosition + 1
                 Collections.swap(displayList, fromPosition, toPosition)
-                // ### 修正箇所 ###
-                // 2つのアイテムが変更されたことを通知し、再描画させる
                 notifyItemRangeChanged(fromPosition, 2)
             }
         }

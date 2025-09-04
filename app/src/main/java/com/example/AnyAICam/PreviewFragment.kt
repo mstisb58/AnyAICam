@@ -3,10 +3,12 @@ package com.example.AnyAICam
 
 import android.content.ContentValues
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -83,20 +85,32 @@ class PreviewFragment : Fragment() {
             }
 
             val activeProcessors = sharedViewModel.activeProcessors.value
-            processedBitmaps.clear()
+            processedBitmaps.clear() // For saving
+            val displayList = mutableListOf<Pair<String, Bitmap>>() // For preview
 
             if (!activeProcessors.isNullOrEmpty()) {
                 activeProcessors.forEach { processor ->
-                    val processedBitmap = processor.processFrameForSaving(rawBitmap!!.copy(rawBitmap!!.config, true))
-                    processedBitmaps[processor] = processedBitmap
-                }
-            }
+                    // 1. Always generate the real bitmap for saving purposes
+                    val bitmapToSave = processor.processFrameForSaving(rawBitmap!!.copy(rawBitmap!!.config, true))
+                    processedBitmaps[processor] = bitmapToSave
 
-            // ### 修正箇所 ###
-            // Raw画像のプレビューを自動で追加するのをやめ、選択されたプロセッサの結果のみ表示する
-            val displayList = mutableListOf<Pair<String, Bitmap>>()
-            processedBitmaps.forEach { (processor, bitmap) ->
-                displayList.add(processor.name to bitmap)
+                    // 2. Determine the bitmap for the preview display
+                    val bitmapForPreview = if (processor.isDummyPreviewEnabled) {
+                        // If dummy mode is on, load the dummy icon from assets.
+                        try {
+                            requireContext().assets.open("icon.png").use { inputStream ->
+                                BitmapFactory.decodeStream(inputStream)
+                            } ?: bitmapToSave // Fallback to saved bitmap if loading fails
+                        } catch (e: Exception) {
+                            Log.e("PreviewFragment", "Failed to load dummy image", e)
+                            bitmapToSave // Fallback to saved bitmap on error
+                        }
+                    } else {
+                        // Otherwise, just use the already processed (real) bitmap.
+                        bitmapToSave
+                    }
+                    displayList.add(processor.name to bitmapForPreview)
+                }
             }
 
             withContext(Dispatchers.Main) {
@@ -156,7 +170,7 @@ class PreviewFragment : Fragment() {
             put(MediaStore.Images.Media.DISPLAY_NAME, filename)
             put(MediaStore.Images.Media.MIME_TYPE, "image/png")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val relativePath = Environment.DIRECTORY_PICTURES + File.separator + "MPdetector" + File.separator + directory
+                val relativePath = Environment.DIRECTORY_PICTURES + File.separator + "AnyAICam" + File.separator + directory
                 put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
                 put(MediaStore.Images.Media.IS_PENDING, 1)
             }

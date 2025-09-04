@@ -22,6 +22,7 @@ class ImgAnalyzer : ImgProcessor {
     // 内部的な名前と保存ディレクトリ名のみ変更
     override val name: String = "Pose"
     override val saveDirectoryName: String = "PoseDetector"
+    override var isDummyPreviewEnabled: Boolean = false
 
     private var poseLandmarker: PoseLandmarker? = null
 

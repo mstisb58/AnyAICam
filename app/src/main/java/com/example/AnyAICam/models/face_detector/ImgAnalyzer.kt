@@ -19,6 +19,7 @@ import org.opencv.imgproc.Imgproc
 class ImgAnalyzer : ImgProcessor {
     override val name: String = "Face"
     override val saveDirectoryName: String = "FaceDetector"
+    override var isDummyPreviewEnabled: Boolean = false
 
     private var faceLandmarker: FaceLandmarker? = null
     private val LANDMARK_COLOR = Scalar(0.0, 255.0, 0.0) // Green

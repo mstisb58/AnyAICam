@@ -9,6 +9,7 @@ import org.opencv.imgproc.Imgproc
 class ImgAnalyzer : ImgProcessor {
     override val name: String = "Wink"
     override val saveDirectoryName: String = "WinkDetector"
+    override var isDummyPreviewEnabled: Boolean = false
 
     override fun processFrameForDisplay(frame: Mat): Pair<Mat, Boolean> {
         // 入力されたMatのクローンを作成し、副作用を防ぐ
