@@ -402,8 +402,8 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
 
                             if (isRecording) {
                                 if (videoRecorder == null) {
-                                    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-                                    videoFile = File(requireContext().cacheDir, "temp_video_${'$'}{timestamp}.mp4")
+                                    // val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                                    videoFile = File(requireContext().cacheDir, "temp_video_${'$'}{videoTimestamp}.mp4")
                                     // Use bitmap dimensions for recorder
                                     videoRecorder = VideoRecorder(displayBitmap.width, displayBitmap.height, videoFile!!)
                                     videoRecorder?.start()
