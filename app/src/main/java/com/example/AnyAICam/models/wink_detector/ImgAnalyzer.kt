@@ -10,6 +10,8 @@ class ImgAnalyzer : ImgProcessor {
     override val name: String = "Wink"
     override val saveDirectoryName: String = "WinkDetector"
     override var isDummyPreviewEnabled: Boolean = false
+    override var showLandmarks: Boolean = false
+    override var saveLandmarks: Boolean = false
 
     override fun processFrameForDisplay(frame: Mat): Pair<Mat, Boolean> {
         // 入力されたMatのクローンを作成し、副作用を防ぐ

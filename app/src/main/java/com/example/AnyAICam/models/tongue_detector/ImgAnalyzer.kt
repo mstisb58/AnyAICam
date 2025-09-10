@@ -19,6 +19,9 @@ class ImgAnalyzer : ImgProcessor {
     override val name: String = "Tongue"
     override val saveDirectoryName: String = "TongueDetector"
     override var isDummyPreviewEnabled: Boolean = false
+    override var showLandmarks: Boolean = false
+    override var saveLandmarks: Boolean = false
+    var forceShutterEnabled: Boolean = false // trueにすると、検出結果に関わらず常にシャッターを有効にする
 
     private var faceLandmarker: FaceLandmarker? = null
     private var tfliteHelper: TfliteHelper? = null // TfliteHelperを追加
@@ -110,6 +113,10 @@ class ImgAnalyzer : ImgProcessor {
                     2
                 )
             }
+        }
+        // forceShutterEnabledがtrueなら、実際の検出結果に関わらずstatusをtrueに上書き
+        if (forceShutterEnabled) {
+            status = true
         }
         return Pair(outputFrame, status)
     }

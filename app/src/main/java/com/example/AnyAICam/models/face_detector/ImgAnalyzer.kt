@@ -1,4 +1,3 @@
-// models/face_detector/ImgAnalyzer.kt
 package com.example.AnyAICam.models.face_detector
 
 import android.content.Context
@@ -12,17 +11,17 @@ import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
 import org.opencv.android.Utils
 import org.opencv.core.Mat
-import org.opencv.core.Point
-import org.opencv.core.Scalar
-import org.opencv.imgproc.Imgproc
 
 class ImgAnalyzer : ImgProcessor {
     override val name: String = "Face"
     override val saveDirectoryName: String = "FaceDetector"
     override var isDummyPreviewEnabled: Boolean = false
 
+    override var showLandmarks: Boolean = true
+    override var saveLandmarks: Boolean = false
+
     private var faceLandmarker: FaceLandmarker? = null
-    private val LANDMARK_COLOR = Scalar(0.0, 255.0, 0.0) // Green
+    private var lastLandmarks: List<NormalizedLandmark>? = null
 
     override fun setup(context: Context) {
         if (faceLandmarker == null) {
@@ -42,19 +41,22 @@ class ImgAnalyzer : ImgProcessor {
         }
     }
 
-    override fun processFrameForDisplay(frame: Mat): Pair<Mat, Boolean> {
-        if (faceLandmarker == null) return Pair(frame, false)
-
-        val outputFrame = frame.clone()
-        val bmp = Bitmap.createBitmap(outputFrame.cols(), frame.rows(), Bitmap.Config.ARGB_8888)
-        Utils.matToBitmap(outputFrame, bmp)
+    private fun detect(frame: Mat): List<NormalizedLandmark>? {
+        if (faceLandmarker == null) return null
+        val bmp = Bitmap.createBitmap(frame.cols(), frame.rows(), Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(frame, bmp)
         val mpImage = BitmapImageBuilder(bmp).build()
         val results = faceLandmarker?.detect(mpImage)
+        lastLandmarks = results?.faceLandmarks()?.getOrNull(0)
+        return lastLandmarks
+    }
 
-        if (results != null && results.faceLandmarks().isNotEmpty()) {
-            for (landmarks in results.faceLandmarks()) {
-                drawFaceLandmarksOnMat(landmarks, outputFrame)
-            }
+    override fun processFrameForDisplay(frame: Mat): Pair<Mat, Boolean> {
+        val outputFrame = frame.clone()
+        val landmarks = detect(outputFrame)
+
+        if (showLandmarks && landmarks != null) {
+            LandmarkHelper.drawFaceLandmarksOnMat(landmarks, outputFrame)
         }
 
         return Pair(outputFrame, true)
@@ -63,16 +65,14 @@ class ImgAnalyzer : ImgProcessor {
     override fun processFrameForSaving(frame: Bitmap): Bitmap {
         if (faceLandmarker == null) return frame
 
-        val mpImage = BitmapImageBuilder(frame).build()
-        val results = faceLandmarker?.detect(mpImage)
-
         val outputMat = Mat()
         Utils.bitmapToMat(frame, outputMat)
 
-        if (results != null && results.faceLandmarks().isNotEmpty()) {
-            for (landmarks in results.faceLandmarks()) {
-                drawFaceLandmarksOnMat(landmarks, outputMat)
-            }
+        // Re-detect landmarks for saving.
+        val landmarks = detect(outputMat)
+
+        if (showLandmarks && landmarks != null) {
+            LandmarkHelper.drawFaceLandmarksOnMat(landmarks, outputMat)
         }
 
         val resultBitmap = Bitmap.createBitmap(outputMat.cols(), outputMat.rows(), Bitmap.Config.ARGB_8888)
@@ -82,13 +82,12 @@ class ImgAnalyzer : ImgProcessor {
         return resultBitmap
     }
 
-    private fun drawFaceLandmarksOnMat(landmarks: List<NormalizedLandmark>, outputMat: Mat) {
-        val imageW = outputMat.width()
-        val imageH = outputMat.height()
+    override fun getLandmarksForCsv(): String? {
+        return lastLandmarks?.let { LandmarkHelper.landmarksToCsvRow(it) }
+    }
 
-        for (landmark in landmarks) {
-            val point = Point((landmark.x() * imageW).toDouble(), (landmark.y() * imageH).toDouble())
-            Imgproc.circle(outputMat, point, 2, LANDMARK_COLOR, -1)
-        }
+    override fun getCsvHeader(): String {
+        return LandmarkHelper.getCsvHeader()
     }
 }
+

@@ -13,6 +13,8 @@ class ImgAnalyzer : ImgProcessor {
     override val name: String = "Raw"
     override val saveDirectoryName: String = "Raw"
     override var isDummyPreviewEnabled: Boolean = false
+    override var showLandmarks: Boolean = false
+    override var saveLandmarks: Boolean = false
 
     /**
      * リアルタイム表示用の処理。

@@ -5,11 +5,14 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.CheckBox
+import android.widget.LinearLayout
 import androidx.fragment.app.DialogFragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.AnyAICam.databinding.DialogProcessorSelectionBinding
 import com.example.AnyAICam.databinding.ListItemProcessorBinding
+import com.example.AnyAICam.models.tongue_detector.ImgAnalyzer
 import java.util.Collections
 
 interface ProcessorSelectionListener {
@@ -79,33 +82,29 @@ class ProcessorAdapter(
         val processor = displayList[position]
         holder.binding.processorName.text = processor.name
 
-        // Set initial states
         val isSelected = selectedStatus[processor] ?: false
-        holder.binding.processorCheckbox.isChecked = isSelected
-        holder.binding.dummyPreviewSwitch.isChecked = processor.isDummyPreviewEnabled
-        // The dummy switch is enabled only when the processor is selected
-        holder.binding.dummyPreviewSwitch.isEnabled = isSelected
 
-        // Listener for the main selection checkbox
+        // To prevent the listener from firing during re-binding, set it to null first.
+        holder.binding.processorCheckbox.setOnCheckedChangeListener(null)
+        holder.binding.processorCheckbox.isChecked = isSelected
+
+        // Handle expanding/collapsing the options view
+        if (isSelected) {
+            holder.binding.itemOptionsContainer.visibility = View.VISIBLE
+            populateOptions(holder.binding.itemOptionsContainer, processor)
+        } else {
+            holder.binding.itemOptionsContainer.visibility = View.GONE
+            holder.binding.itemOptionsContainer.removeAllViews()
+        }
+
+        // Now, set the listener for user interactions.
         holder.binding.processorCheckbox.setOnCheckedChangeListener { _, isChecked ->
             selectedStatus[processor] = isChecked
-            // Enable/disable the dummy preview switch based on the main selection
-            holder.binding.dummyPreviewSwitch.isEnabled = isChecked
-            // If unchecked, also turn off the dummy preview setting
-            if (!isChecked) {
-                processor.isDummyPreviewEnabled = false
-                holder.binding.dummyPreviewSwitch.isChecked = false
-            }
+            // Redraw the item to show/hide the options container
+            notifyItemChanged(position)
         }
 
-        // Listener for the dummy preview switch
-        holder.binding.dummyPreviewSwitch.setOnCheckedChangeListener { _, isChecked ->
-            // Only allow toggling if the processor itself is selected
-            if (holder.binding.processorCheckbox.isChecked) {
-                processor.isDummyPreviewEnabled = isChecked
-            }
-        }
-
+        // --- Reorder buttons logic (unchanged) ---
         holder.binding.buttonUp.visibility = if (position > 0) View.VISIBLE else View.INVISIBLE
         holder.binding.buttonDown.visibility = if (position < displayList.size - 1) View.VISIBLE else View.INVISIBLE
 
@@ -114,7 +113,7 @@ class ProcessorAdapter(
             if (fromPosition > 0) {
                 val toPosition = fromPosition - 1
                 Collections.swap(displayList, fromPosition, toPosition)
-                notifyItemRangeChanged(toPosition, 2)
+                notifyItemMoved(fromPosition, toPosition)
             }
         }
 
@@ -123,8 +122,56 @@ class ProcessorAdapter(
             if (fromPosition < displayList.size - 1) {
                 val toPosition = fromPosition + 1
                 Collections.swap(displayList, fromPosition, toPosition)
-                notifyItemRangeChanged(fromPosition, 2)
+                notifyItemMoved(fromPosition, toPosition)
             }
+        }
+    }
+
+    private fun populateOptions(container: LinearLayout, processor: ImgProcessor) {
+        container.removeAllViews()
+        val context = container.context
+
+        // 1. Add "Dummy Preview" checkbox for all models
+        val dummyCheckBox = CheckBox(context).apply {
+            text = "Dummy Preview"
+            isChecked = processor.isDummyPreviewEnabled
+            setOnCheckedChangeListener { _, isChecked ->
+                processor.isDummyPreviewEnabled = isChecked
+            }
+        }
+        container.addView(dummyCheckBox)
+
+        // 2. Add landmark options if applicable
+        if (processor.getCsvHeader() != null) {
+            val showLandmarksCheckbox = CheckBox(context).apply {
+                text = "Show Landmarks"
+                isChecked = processor.showLandmarks
+                setOnCheckedChangeListener { _, isChecked ->
+                    processor.showLandmarks = isChecked
+                }
+            }
+            container.addView(showLandmarksCheckbox)
+
+            val saveLandmarksCheckbox = CheckBox(context).apply {
+                text = "Save Landmarks (CSV)"
+                isChecked = processor.saveLandmarks
+                setOnCheckedChangeListener { _, isChecked ->
+                    processor.saveLandmarks = isChecked
+                }
+            }
+            container.addView(saveLandmarksCheckbox)
+        }
+
+        // 3. Add other model-specific options
+        if (processor is com.example.AnyAICam.models.tongue_detector.ImgAnalyzer) { // This is the Tongue Detector
+            val forceShutterCheckBox = CheckBox(context).apply {
+                text = "Always Enable Shutter"
+                isChecked = processor.forceShutterEnabled
+                setOnCheckedChangeListener { _, isChecked ->
+                    processor.forceShutterEnabled = isChecked
+                }
+            }
+            container.addView(forceShutterCheckBox)
         }
     }
 

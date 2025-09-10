@@ -142,16 +142,63 @@ class PreviewFragment : Fragment() {
 
             var saveCount = 0
 
-            // ### 修正箇所 ###
-            // Raw画像の自動保存を削除
             processedBitmaps.forEach { (processor, bitmap) ->
                 saveBitmap(bitmap, finalFilenameBase, processor.name, processor.saveDirectoryName)
                 saveCount++
+
+                if (processor.saveLandmarks) {
+                    val header = processor.getCsvHeader()
+                    val landmarksCsv = processor.getLandmarksForCsv()
+                    if (header != null && landmarksCsv != null) {
+                        val csvFilename = "${finalFilenameBase}_${processor.name}.csv"
+                        saveCsv(csvFilename, processor.saveDirectoryName, header, landmarksCsv)
+                    }
+                }
             }
 
             withContext(Dispatchers.Main) {
-                Toast.makeText(requireContext(), "$saveCount 件の画像を保存しました。", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "$saveCount 件の画像と関連データを保存しました。", Toast.LENGTH_SHORT).show()
                 (activity as? MainActivity)?.navigateBackToCamera()
+            }
+        }
+    }
+
+    private fun saveCsv(filename: String, directory: String, header: String, content: String) {
+        val resolver = requireActivity().contentResolver
+
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        } else {
+            return // Older versions not supported for this CSV feature
+        }
+
+        val contentValues = ContentValues().apply {
+            put(MediaStore.Files.FileColumns.DISPLAY_NAME, filename)
+            put(MediaStore.Files.FileColumns.MIME_TYPE, "text/csv")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val relativePath = Environment.DIRECTORY_DOCUMENTS + File.separator + "AnyAiCamera" + File.separator + directory
+                put(MediaStore.Files.FileColumns.RELATIVE_PATH, relativePath)
+                put(MediaStore.Files.FileColumns.IS_PENDING, 1)
+            }
+        }
+
+        val uri = resolver.insert(collection, contentValues)
+        uri?.let {
+            try {
+                resolver.openOutputStream(it)?.use { outputStream ->
+                    outputStream.bufferedWriter().use { writer ->
+                        writer.write(header)
+                        writer.newLine()
+                        writer.write(content)
+                    }
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    contentValues.clear()
+                    contentValues.put(MediaStore.Files.FileColumns.IS_PENDING, 0)
+                    resolver.update(it, contentValues, null, null)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }

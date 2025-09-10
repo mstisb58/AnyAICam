@@ -27,6 +27,16 @@ interface ImgProcessor {
     var isDummyPreviewEnabled: Boolean
 
     /**
+     * このプロセッサーでランドマーク表示が有効になっているかどうかのフラグ。
+     */
+    var showLandmarks: Boolean
+
+    /**
+     * このプロセッサーでランドマークのCSV保存が有効になっているかどうかのフラグ。
+     */
+    var saveLandmarks: Boolean
+
+    /**
      * 初期化処理。モデルの読み込みなど、重い処理をここで行います。
      * @param context アプリケーションコンテキスト。アセットファイルの読み込みなどに使用します。
      */
@@ -51,6 +61,22 @@ interface ImgProcessor {
      * @return 処理後の画像 (Bitmap形式)
      */
     fun processFrameForSaving(frame: Bitmap): Bitmap
+
+    /**
+     * ランドマーク情報のCSVヘッダーを返します。
+     * ランドマークをサポートしないプロセッサはnullを返します。
+     */
+    fun getCsvHeader(): String? {
+        return null
+    }
+
+    /**
+     * 最新のフレームから検出されたランドマーク情報をCSVの1行として返します。
+     * ランドマークをサポートしない、または検出されなかった場合はnullを返します。
+     */
+    fun getLandmarksForCsv(): String? {
+        return null
+    }
 
     
 }

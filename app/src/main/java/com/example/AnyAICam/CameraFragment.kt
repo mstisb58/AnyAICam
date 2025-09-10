@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -56,7 +57,8 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
     private val availableProcessors = ProcessorRepository.getProcessors()
 
     private var imageCapture: ImageCapture? = null
-    private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
+    private var cameraIds: List<String> = emptyList()
+    private var currentCameraIndex: Int = 0
     private var cameraProvider: ProcessCameraProvider? = null
     private var camera: Camera? = null
     private lateinit var scaleGestureDetector: ScaleGestureDetector
@@ -67,6 +69,8 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
     private var videoRecorder: VideoRecorder? = null
     private var isRecording = false
     private var videoFile: File? = null
+    private val videoLandmarksData = mutableMapOf<ImgProcessor, MutableList<String>>()
+    private var videoTimestamp: String = ""
 
     private val activityResultLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -117,6 +121,25 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
 
 
     private fun initializeCamera() {
+        val cameraManager = requireContext().getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        try {
+            cameraIds = cameraManager.cameraIdList.toList().filterNotNull()
+            if (cameraIds.isEmpty()) {
+                Log.e("CameraFragment", "No camera IDs found.")
+                return
+            }
+            // Log camera details for debugging
+            cameraIds.forEach { id ->
+                val characteristics = cameraManager.getCameraCharacteristics(id)
+                val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
+                val focalLengths = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+                val sensorSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
+                Log.d("CameraInfo", "ID: " + id + " Facing: " + facing + " FocalLengths: " + focalLengths?.joinToString() + " SensorSize: " + sensorSize)
+            }
+        } catch (e: Exception) {
+            Log.e("CameraFragment", "Error getting camera IDs", e)
+        }
+
         if (OpenCVLoader.initDebug()) {
             startCamera()
         } else {
@@ -133,8 +156,10 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
                 Toast.makeText(requireContext(), "Stop recording before switching camera.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            lensFacing = if (CameraSelector.LENS_FACING_FRONT == lensFacing) CameraSelector.LENS_FACING_BACK else CameraSelector.LENS_FACING_FRONT
-            startCamera()
+            if (cameraIds.isNotEmpty()) {
+                currentCameraIndex = (currentCameraIndex + 1) % cameraIds.size
+                startCamera()
+            }
         }
         binding.recordButton.setOnClickListener { toggleRecording() }
 
@@ -178,13 +203,31 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
         isRecording = !isRecording
         if (isRecording) {
             binding.recordButton.setImageResource(android.R.drawable.ic_media_pause)
-            // Recorder is initialized in the analyzer when the first frame is available
+            // Prepare for landmark saving
+            videoLandmarksData.clear()
+            videoTimestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            sharedViewModel.activeProcessors.value?.filter { it.saveLandmarks }?.forEach { processor ->
+                processor.getCsvHeader()?.let {
+                    header -> videoLandmarksData[processor] = mutableListOf(header)
+                }
+            }
         } else {
             binding.recordButton.setImageResource(android.R.drawable.ic_media_play)
-            videoRecorder?.stop() // This stops and releases everything
+            videoRecorder?.stop()
             videoRecorder = null
             videoFile?.let {
                 saveVideoToGallery(it)
+            }
+
+            // Save landmark data
+            if (videoLandmarksData.isNotEmpty()) {
+                videoLandmarksData.forEach { (processor, data) ->
+                    if (data.size > 1) { // Header + at least one row
+                        val csvFilename = "video_${videoTimestamp}_${processor.name}.csv"
+                        saveCsv(csvFilename, processor.saveDirectoryName, data)
+                    }
+                }
+                videoLandmarksData.clear()
             }
         }
     }
@@ -225,6 +268,47 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
         }
     }
 
+    private fun saveCsv(filename: String, directory: String, data: List<String>) {
+        val resolver = requireActivity().contentResolver
+
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        } else {
+            return
+        }
+
+        val contentValues = ContentValues().apply {
+            put(MediaStore.Files.FileColumns.DISPLAY_NAME, filename)
+            put(MediaStore.Files.FileColumns.MIME_TYPE, "text/csv")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val relativePath = Environment.DIRECTORY_DOCUMENTS + File.separator + "AnyAiCamera" + File.separator + directory
+                put(MediaStore.Files.FileColumns.RELATIVE_PATH, relativePath)
+                put(MediaStore.Files.FileColumns.IS_PENDING, 1)
+            }
+        }
+
+        val uri = resolver.insert(collection, contentValues)
+        uri?.let {
+            try {
+                resolver.openOutputStream(it)?.use { outputStream ->
+                    outputStream.bufferedWriter().use { writer ->
+                        data.forEach { line ->
+                            writer.write(line)
+                            writer.newLine()
+                        }
+                    }
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    contentValues.clear()
+                    contentValues.put(MediaStore.Files.FileColumns.IS_PENDING, 0)
+                    resolver.update(it, contentValues, null, null)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     private fun openProcessorSelectionDialog() {
         val dialog = ProcessorSelectionDialogFragment(
             allProcessors = availableProcessors,
@@ -244,10 +328,39 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
         val cameraProviderFuture: ListenableFuture<ProcessCameraProvider> = ProcessCameraProvider.getInstance(requireContext())
         cameraProviderFuture.addListener({
             cameraProvider = cameraProviderFuture.get()
-            val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
-            updateCameraSwitchButtonVisibility()
+
+            if (cameraIds.isEmpty()) {
+                Log.e("CameraFragment", "No cameras available.")
+                binding.cameraSwitchButton.isVisible = false
+                return@addListener
+            }
+            binding.cameraSwitchButton.isVisible = cameraIds.size > 1
+
+            val cameraId = cameraIds[currentCameraIndex]
+            val cameraSelector = CameraSelector.Builder().addCameraFilter {
+                it.filter { cameraInfo ->
+                    Camera2CameraInfo.from(cameraInfo).cameraId == cameraId
+                }
+            }.build()
             val preview = Preview.Builder().build().also { it.setSurfaceProvider(binding.cameraPreview.surfaceProvider) }
-            imageCapture = ImageCapture.Builder().build()
+
+            val imageCaptureBuilder = ImageCapture.Builder()
+            val cameraManager = requireContext().getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            val cameraIdToConfigure = cameraId
+
+            try {
+                val characteristics = cameraManager.getCameraCharacteristics(cameraIdToConfigure)
+                val streamConfigurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                val outputSizes = streamConfigurationMap?.getOutputSizes(ImageFormat.JPEG)
+                outputSizes?.maxByOrNull { it.width * it.height }?.let { maxResolution ->
+                    imageCaptureBuilder.setTargetResolution(maxResolution)
+                    Log.d("CameraSetup", "Setting camera $cameraIdToConfigure resolution to $maxResolution")
+                }
+            } catch (e: Exception) {
+                Log.e("CameraSetup", "Failed to set high resolution for camera $cameraIdToConfigure", e)
+            }
+            imageCapture = imageCaptureBuilder.build()
+
             val imageAnalyzer = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
@@ -294,6 +407,13 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
                                     // Use bitmap dimensions for recorder
                                     videoRecorder = VideoRecorder(displayBitmap.width, displayBitmap.height, videoFile!!)
                                     videoRecorder?.start()
+                                }
+
+                                // Collect landmark data
+                                videoLandmarksData.keys.forEach { processor ->
+                                    processor.getLandmarksForCsv()?.let { csvRow ->
+                                        videoLandmarksData[processor]?.add(csvRow)
+                                    }
                                 }
 
                                 // Draw the final display bitmap onto the recorder's surface
@@ -389,19 +509,7 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
         }
     }
 
-    private fun updateCameraSwitchButtonVisibility() {
-        try {
-            val hasBackCamera = cameraProvider?.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) ?: false
-            val hasFrontCamera = cameraProvider?.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) ?: false
-            activity?.runOnUiThread {
-                if (_binding != null) binding.cameraSwitchButton.isVisible = hasBackCamera && hasFrontCamera
-            }
-        } catch (e: CameraInfoUnavailableException) {
-            activity?.runOnUiThread {
-                if (_binding != null) binding.cameraSwitchButton.isVisible = false
-            }
-        }
-    }
+    
 
     private fun takePhoto() {
         val imageCapture = imageCapture ?: return
