@@ -16,6 +16,7 @@ object ProcessorRepository {
         "com.example.AnyAICam.models.pose_detector.ImgAnalyzer",
         "com.example.AnyAICam.models.tongue_detector.ImgAnalyzer",
         "com.example.AnyAICam.models.wink_detector.ImgAnalyzer",
+        "com.example.AnyAICam.models.show_aqua.ImgAnalyzer",
     )
 
     private var cachedProcessors: List<ImgProcessor>? = null

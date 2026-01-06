@@ -19,6 +19,7 @@ class ImgAnalyzer : ImgProcessor {
 
     override var showLandmarks: Boolean = true
     override var saveLandmarks: Boolean = false
+    var showNumbers: Boolean = false
 
     private var faceLandmarker: FaceLandmarker? = null
     private var lastLandmarks: List<NormalizedLandmark>? = null
@@ -56,7 +57,7 @@ class ImgAnalyzer : ImgProcessor {
         val landmarks = detect(outputFrame)
 
         if (showLandmarks && landmarks != null) {
-            LandmarkHelper.drawFaceLandmarksOnMat(landmarks, outputFrame)
+            LandmarkHelper.drawFaceLandmarksOnMat(landmarks, outputFrame, showNumbers)
         }
 
         return Pair(outputFrame, true)
@@ -72,7 +73,7 @@ class ImgAnalyzer : ImgProcessor {
         val landmarks = detect(outputMat)
 
         if (showLandmarks && landmarks != null) {
-            LandmarkHelper.drawFaceLandmarksOnMat(landmarks, outputMat)
+            LandmarkHelper.drawFaceLandmarksOnMat(landmarks, outputMat, showNumbers)
         }
 
         val resultBitmap = Bitmap.createBitmap(outputMat.cols(), outputMat.rows(), Bitmap.Config.ARGB_8888)

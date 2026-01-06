@@ -163,6 +163,17 @@ class ProcessorAdapter(
         }
 
         // 3. Add other model-specific options
+        if (processor is com.example.AnyAICam.models.face_detector.ImgAnalyzer) {
+            val showNumbersCheckBox = CheckBox(context).apply {
+                text = "Show Numbers"
+                isChecked = processor.showNumbers
+                setOnCheckedChangeListener { _, isChecked ->
+                    processor.showNumbers = isChecked
+                }
+            }
+            container.addView(showNumbersCheckBox)
+        }
+
         if (processor is com.example.AnyAICam.models.tongue_detector.ImgAnalyzer) { // This is the Tongue Detector
             val forceShutterCheckBox = CheckBox(context).apply {
                 text = "Always Enable Shutter"
