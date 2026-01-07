@@ -24,8 +24,9 @@ class ImgAnalyzer : ImgProcessor {
         private const val MODEL_PATH = "mediapipe/face_landmarker.task"
 
         private val TARGET_POLYGONS = mapOf(
-            "Right Eyebrow" to listOf(109, 108, 151, 10),
-            "Left Eyebrow" to listOf(10, 151, 337, 338)
+            "Forehead_01" to listOf(109, 108, 151, 10),
+            "Forehead_02" to listOf(10, 151, 337, 338),
+
         )
 
         private val DRAW_COLOR_LANDMARKS = Scalar(0.0, 255.0, 0.0, 255.0) // Green
@@ -153,9 +154,9 @@ class ImgAnalyzer : ImgProcessor {
                         Imgproc.fillPoly(overlay, listOf(matOfPoint), colorScalarBGRA)
                         
                         val boundingRect = Imgproc.boundingRect(matOfPoint)
-                        val textOrigin = Point(boundingRect.x.toDouble(), (boundingRect.y + boundingRect.height + 20).toDouble())
+                        val textOrigin = Point(boundingRect.x.toDouble()+5, (boundingRect.y + boundingRect.height-20).toDouble())
                         val moistureText = String.format(Locale.US, "%.2f", moisture)
-                        Imgproc.putText(outputMat, moistureText, textOrigin, Imgproc.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_BLACK, 2)
+                        Imgproc.putText(outputMat, moistureText, textOrigin, Imgproc.FONT_HERSHEY_SIMPLEX, 0.4, COLOR_BLACK, 1)
                         
                         matOfPoint.release()
                     }

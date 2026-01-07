@@ -350,17 +350,8 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
             val preview = Preview.Builder().build().also { it.setSurfaceProvider(binding.cameraPreview.surfaceProvider) }
 
             val imageCaptureBuilder = ImageCapture.Builder()
+                .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
 
-            try {
-                val streamConfigurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                val outputSizes = streamConfigurationMap?.getOutputSizes(ImageFormat.JPEG)
-                outputSizes?.maxByOrNull { it.width * it.height }?.let { maxResolution ->
-                    imageCaptureBuilder.setTargetResolution(maxResolution)
-                    Log.d("CameraSetup", "Setting camera $cameraId resolution to $maxResolution")
-                }
-            } catch (e: Exception) {
-                Log.e("CameraSetup", "Failed to set high resolution for camera $cameraId", e)
-            }
             imageCapture = imageCaptureBuilder.build()
 
             val imageAnalyzer = ImageAnalysis.Builder()
@@ -386,6 +377,11 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
                             rotatedMat = frameMat // No rotation, just use the original.
                         }
 
+                        // Mirror effect for front camera should be applied BEFORE processing
+                        if (isFrontCamera) {
+                            Core.flip(rotatedMat, rotatedMat, 1) // 1 is for horizontal flip
+                        }
+
                         var displayMat = rotatedMat
                         var allStatusesOk = true
                         try {
@@ -398,11 +394,6 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
                                     displayMat = processedMat
                                     if (!status) allStatusesOk = false
                                 }
-                            }
-
-                            // Mirror effect for front camera
-                            if (isFrontCamera) {
-                                Core.flip(displayMat, displayMat, 1) // 1 is for horizontal flip
                             }
 
                             val displayBitmap = matToBitmap(displayMat)
@@ -566,22 +557,80 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
     }
 
     private fun imageProxyToMat(image: ImageProxy): Mat {
-        val yBuffer = image.planes[0].buffer
-        val uBuffer = image.planes[1].buffer
-        val vBuffer = image.planes[2].buffer
+        val yPlane = image.planes[0]
+        val uPlane = image.planes[1]
+        val vPlane = image.planes[2]
+
+        val yBuffer = yPlane.buffer
+        val uBuffer = uPlane.buffer
+        val vBuffer = vPlane.buffer
+
         val ySize = yBuffer.remaining()
         val uSize = uBuffer.remaining()
         val vSize = vBuffer.remaining()
-        val nv21 = ByteArray(ySize + uSize + vSize)
-        yBuffer.get(nv21, 0, ySize)
-        uBuffer.get(nv21, ySize, uSize)
-        vBuffer.get(nv21, ySize + uSize, vSize)
+
+        val yuvBytes: ByteArray
+        val cvtColorCode: Int
+
+        // Determine if running on an emulator
+        val isEmulator = isEmulator()
+
+        if (isEmulator) {
+            // For emulators, generally I420 format (Y, U, V as separate planes)
+            yuvBytes = ByteArray(ySize + uSize + vSize)
+            yBuffer.get(yuvBytes, 0, ySize)
+            uBuffer.get(yuvBytes, ySize, uSize)
+            vBuffer.get(yuvBytes, ySize + uSize, vSize)
+            cvtColorCode = Imgproc.COLOR_YUV2RGBA_I420
+        } else {
+            // For physical devices, generally NV21 format (Y, then interleaved VU)
+            val nv21Size = ySize + image.width * image.height / 2 // Y + interleaved VU
+            yuvBytes = ByteArray(nv21Size)
+
+            // Copy Y plane
+            yBuffer.get(yuvBytes, 0, ySize)
+
+            // Copy UV planes, interleaving them to form NV21 (V then U)
+            val chromaWidth = image.width / 2
+            val chromaHeight = image.height / 2
+
+            val rowStrideU = uPlane.rowStride
+            val pixelStrideU = uPlane.pixelStride
+            val rowStrideV = vPlane.rowStride
+            val pixelStrideV = vPlane.pixelStride
+
+            var nv21Index = ySize
+            for (row in 0 until chromaHeight) {
+                for (col in 0 until chromaWidth) {
+                    val uPixel = uBuffer.get(row * rowStrideU + col * pixelStrideU)
+                    val vPixel = vBuffer.get(row * rowStrideV + col * pixelStrideV)
+
+                    // Interleave V and U for NV21: V U V U ...
+                    if (nv21Index < nv21Size) yuvBytes[nv21Index++] = vPixel
+                    if (nv21Index < nv21Size) yuvBytes[nv21Index++] = uPixel
+                }
+            }
+            cvtColorCode = Imgproc.COLOR_YUV2RGBA_NV21
+        }
+
         val yuvImage = Mat(image.height + image.height / 2, image.width, CvType.CV_8UC1)
-        yuvImage.put(0, 0, nv21)
+        yuvImage.put(0, 0, yuvBytes)
         val rgbaMat = Mat()
-        Imgproc.cvtColor(yuvImage, rgbaMat, Imgproc.COLOR_YUV2RGBA_I420, 4)
+        Imgproc.cvtColor(yuvImage, rgbaMat, cvtColorCode, 4)
         yuvImage.release()
         return rgbaMat
+    }
+
+    // Helper function to check if the device is an emulator
+    private fun isEmulator(): Boolean {
+        return (Build.FINGERPRINT.startsWith("generic")
+                || Build.FINGERPRINT.startsWith("unknown")
+                || Build.MODEL.contains("google_sdk")
+                || Build.MODEL.contains("Emulator")
+                || Build.MODEL.contains("Android SDK built for x86")
+                || Build.MANUFACTURER.contains("Genymotion")
+                || (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic"))
+                || "google_sdk" == Build.PRODUCT)
     }
 
     private fun matToBitmap(mat: Mat): Bitmap {
