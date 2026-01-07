@@ -103,14 +103,19 @@ class ImgAnalyzer : ImgProcessor {
                 // Display the result value for debugging
                 val text = "Result: $result"
                 val textOrigin = Point(info.points.minOf { it.x }, info.points.minOf { it.y } - 10)
+
+                // Calculate dynamic font scale and thickness
+                val fontScale = (outputFrame.width() / 900.0).coerceAtLeast(0.5)
+                val thickness = (outputFrame.width() / 400.0).coerceAtLeast(1.0).toInt()
+
                 Imgproc.putText(
                     outputFrame,
                     text,
                     textOrigin,
                     Imgproc.FONT_HERSHEY_SIMPLEX,
-                    1.0,
+                    fontScale,
                     Scalar(0.0, 255.0, 255.0),
-                    2
+                    thickness
                 )
             }
         }

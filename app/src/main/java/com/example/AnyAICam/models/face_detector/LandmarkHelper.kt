@@ -13,12 +13,18 @@ object LandmarkHelper {
         val imageW = outputMat.width()
         val imageH = outputMat.height()
 
+        // Calculate dynamic sizes based on image width for consistent appearance
+        val circleRadius = (imageW / 400.0).coerceAtLeast(1.0).toInt()
+        val fontScale = (imageW / 2000.0).coerceAtLeast(0.25)
+        val thickness = (imageW / 1000.0).coerceAtLeast(1.0).toInt()
+
+
         for ((i, landmark) in landmarks.withIndex()) {
             val point = Point((landmark.x() * imageW).toDouble(), (landmark.y() * imageH).toDouble())
-            Imgproc.circle(outputMat, point, 2, LANDMARK_COLOR, -1)
-            
+            Imgproc.circle(outputMat, point, circleRadius, LANDMARK_COLOR, -1)
+
             if (showNumbers) {
-                Imgproc.putText(outputMat, i.toString(), point, Imgproc.FONT_HERSHEY_SIMPLEX, 0.3, LANDMARK_COLOR, 1)
+                Imgproc.putText(outputMat, i.toString(), point, Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, LANDMARK_COLOR, thickness)
             }
         }
     }

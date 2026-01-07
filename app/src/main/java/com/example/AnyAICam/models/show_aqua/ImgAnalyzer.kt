@@ -26,8 +26,8 @@ class ImgAnalyzer : ImgProcessor {
         private val TARGET_POLYGONS = mapOf(
             "Forehead_01" to listOf(109, 108, 151, 10),
             "Forehead_02" to listOf(10, 151, 337, 338),
-
         )
+        private val MASK_POLYGONS = mapOf("eye_mask" to listOf(225,31,448,445))
 
         private val DRAW_COLOR_LANDMARKS = Scalar(0.0, 255.0, 0.0, 255.0) // Green
         private const val DRAW_THICKNESS_LANDMARKS = 3
@@ -156,7 +156,12 @@ class ImgAnalyzer : ImgProcessor {
                         val boundingRect = Imgproc.boundingRect(matOfPoint)
                         val textOrigin = Point(boundingRect.x.toDouble()+5, (boundingRect.y + boundingRect.height-20).toDouble())
                         val moistureText = String.format(Locale.US, "%.2f", moisture)
-                        Imgproc.putText(outputMat, moistureText, textOrigin, Imgproc.FONT_HERSHEY_SIMPLEX, 0.4, COLOR_BLACK, 1)
+
+                        // Calculate dynamic font scale and thickness
+                        val fontScale = (outputMat.width() / 1000.0).coerceAtLeast(0.5)
+                        val thickness = (outputMat.width() / 400.0).coerceAtLeast(1.0).toInt()
+
+                        Imgproc.putText(outputMat, moistureText, textOrigin, Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, COLOR_BLACK, thickness)
                         
                         matOfPoint.release()
                     }
@@ -169,6 +174,17 @@ class ImgAnalyzer : ImgProcessor {
         }
 
         Core.addWeighted(outputMat, 1.0, overlay, 0.6, 0.0, outputMat)
+
+        // Draw masking polygons on top of everything
+        for ((_, ids) in MASK_POLYGONS) {
+            val points = getLandmarkPoints(outputMat.cols(), outputMat.rows(), landmarks, ids)
+            if (points.isNotEmpty()) {
+                val matOfPoint = MatOfPoint().apply { fromList(points) }
+                Imgproc.fillPoly(outputMat, listOf(matOfPoint), COLOR_BLACK)
+                matOfPoint.release()
+            }
+        }
+
         overlay.release()
         inputMat.release()
 
