@@ -7,6 +7,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.CheckBox
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import androidx.fragment.app.DialogFragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -172,6 +174,35 @@ class ProcessorAdapter(
                 }
             }
             container.addView(showNumbersCheckBox)
+        }
+
+        if (processor is com.example.AnyAICam.models.show_aqua.ImgAnalyzer) {
+            val radioGroup = RadioGroup(context).apply {
+                orientation = RadioGroup.VERTICAL
+            }
+
+            val reportButton = RadioButton(context).apply {
+                text = "解析レポート"
+                id = View.generateViewId()
+                isChecked = processor.operatingMode == com.example.AnyAICam.models.show_aqua.ImgAnalyzer.OperatingMode.REPORT
+            }
+
+            val heatmapButton = RadioButton(context).apply {
+                text = "ヒートマップ表示"
+                id = View.generateViewId()
+                isChecked = processor.operatingMode == com.example.AnyAICam.models.show_aqua.ImgAnalyzer.OperatingMode.HEATMAP
+            }
+
+            radioGroup.addView(reportButton)
+            radioGroup.addView(heatmapButton)
+
+            radioGroup.setOnCheckedChangeListener { _, checkedId ->
+                when (checkedId) {
+                    reportButton.id -> processor.operatingMode = com.example.AnyAICam.models.show_aqua.ImgAnalyzer.OperatingMode.REPORT
+                    heatmapButton.id -> processor.operatingMode = com.example.AnyAICam.models.show_aqua.ImgAnalyzer.OperatingMode.HEATMAP
+                }
+            }
+            container.addView(radioGroup)
         }
 
         if (processor is com.example.AnyAICam.models.tongue_detector.ImgAnalyzer) { // This is the Tongue Detector

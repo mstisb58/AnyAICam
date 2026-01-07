@@ -64,6 +64,7 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
     private lateinit var scaleGestureDetector: ScaleGestureDetector
 
     private var isManualFocus = false
+    private var isFrontCamera: Boolean = false
 
     // Video recording
     private var videoRecorder: VideoRecorder? = null
@@ -328,6 +329,7 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
         val cameraProviderFuture: ListenableFuture<ProcessCameraProvider> = ProcessCameraProvider.getInstance(requireContext())
         cameraProviderFuture.addListener({
             cameraProvider = cameraProviderFuture.get()
+            val cameraManager = requireContext().getSystemService(Context.CAMERA_SERVICE) as CameraManager
 
             if (cameraIds.isEmpty()) {
                 Log.e("CameraFragment", "No cameras available.")
@@ -337,6 +339,9 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
             binding.cameraSwitchButton.isVisible = cameraIds.size > 1
 
             val cameraId = cameraIds[currentCameraIndex]
+            val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+            isFrontCamera = characteristics.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
+
             val cameraSelector = CameraSelector.Builder().addCameraFilter {
                 it.filter { cameraInfo ->
                     Camera2CameraInfo.from(cameraInfo).cameraId == cameraId
@@ -345,19 +350,16 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
             val preview = Preview.Builder().build().also { it.setSurfaceProvider(binding.cameraPreview.surfaceProvider) }
 
             val imageCaptureBuilder = ImageCapture.Builder()
-            val cameraManager = requireContext().getSystemService(Context.CAMERA_SERVICE) as CameraManager
-            val cameraIdToConfigure = cameraId
 
             try {
-                val characteristics = cameraManager.getCameraCharacteristics(cameraIdToConfigure)
                 val streamConfigurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
                 val outputSizes = streamConfigurationMap?.getOutputSizes(ImageFormat.JPEG)
                 outputSizes?.maxByOrNull { it.width * it.height }?.let { maxResolution ->
                     imageCaptureBuilder.setTargetResolution(maxResolution)
-                    Log.d("CameraSetup", "Setting camera $cameraIdToConfigure resolution to $maxResolution")
+                    Log.d("CameraSetup", "Setting camera $cameraId resolution to $maxResolution")
                 }
             } catch (e: Exception) {
-                Log.e("CameraSetup", "Failed to set high resolution for camera $cameraIdToConfigure", e)
+                Log.e("CameraSetup", "Failed to set high resolution for camera $cameraId", e)
             }
             imageCapture = imageCaptureBuilder.build()
 
@@ -396,6 +398,11 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
                                     displayMat = processedMat
                                     if (!status) allStatusesOk = false
                                 }
+                            }
+
+                            // Mirror effect for front camera
+                            if (isFrontCamera) {
+                                Core.flip(displayMat, displayMat, 1) // 1 is for horizontal flip
                             }
 
                             val displayBitmap = matToBitmap(displayMat)
@@ -522,7 +529,18 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
                     image.close()
                     val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
                     val rotatedBitmap = Bitmap.createBitmap(unrotatedBitmap, 0, 0, unrotatedBitmap.width, unrotatedBitmap.height, matrix, true)
-                    sharedViewModel.setRawFrame(rotatedBitmap)
+
+                    // Mirror the saved image if it's from the front camera
+                    val finalBitmap = if (isFrontCamera) {
+                        val flipMatrix = Matrix().apply { postScale(-1f, 1f, rotatedBitmap.width / 2f, rotatedBitmap.height / 2f) }
+                        val mirroredBitmap = Bitmap.createBitmap(rotatedBitmap, 0, 0, rotatedBitmap.width, rotatedBitmap.height, flipMatrix, true)
+                        rotatedBitmap.recycle() // Free up the intermediate bitmap
+                        mirroredBitmap
+                    } else {
+                        rotatedBitmap
+                    }
+
+                    sharedViewModel.setRawFrame(finalBitmap)
                     (activity as? MainActivity)?.navigateToPreview()
                 }
                 override fun onError(exc: ImageCaptureException) {
