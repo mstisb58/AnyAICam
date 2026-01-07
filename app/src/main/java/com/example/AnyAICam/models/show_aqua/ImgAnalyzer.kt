@@ -2,6 +2,7 @@ package com.example.AnyAICam.models.show_aqua
 
 import android.content.Context
 import android.graphics.Bitmap
+import androidx.core.graphics.createBitmap
 import android.util.Log
 import com.example.AnyAICam.ImgProcessor
 import com.example.AnyAICam.models.face_detector.LandmarkHelper
@@ -39,7 +40,6 @@ class ImgAnalyzer : ImgProcessor {
         private val COLOR_BLACK = Scalar(0.0, 0.0, 0.0, 255.0)
         private val COLOR_WHITE = Scalar(255.0, 255.0, 255.0, 255.0)
         private val COLOR_GRAY = Scalar(200.0, 200.0, 200.0, 255.0)
-        private val COLOR_GRID = Scalar(230.0, 230.0, 230.0, 255.0)
     }
 
     override val name: String = "show_aqua"
@@ -54,7 +54,9 @@ class ImgAnalyzer : ImgProcessor {
 
     // 分析結果保持用データクラス
     private data class AnalysisResult(
-        val sortedCentroids: List<Scalar>
+        val sortedCentroids: List<Scalar>,
+        val sortedCounts: List<Int>,
+        val totalPixelCount: Int
     ) {
         fun getMedianCentroid(): Scalar {
             return if (sortedCentroids.isNotEmpty()) {
@@ -147,7 +149,7 @@ class ImgAnalyzer : ImgProcessor {
             }
 
             // 4. Bitmapに変換して返す
-            val resultBitmap = Bitmap.createBitmap(finalMat.cols(), finalMat.rows(), Bitmap.Config.ARGB_8888)
+            val resultBitmap = createBitmap(finalMat.cols(), finalMat.rows(), Bitmap.Config.ARGB_8888)
             Utils.matToBitmap(finalMat, resultBitmap)
             Log.d(TAG, "processFrameForSaving: Finished. Total time: ${System.currentTimeMillis() - startTime}ms")
             return resultBitmap
@@ -169,7 +171,7 @@ class ImgAnalyzer : ImgProcessor {
         val landmarker = faceLandmarker ?: return null
         if (conversionBitmap == null || conversionBitmap?.width != frame.cols() || conversionBitmap?.height != frame.rows()) {
             conversionBitmap?.recycle()
-            conversionBitmap = Bitmap.createBitmap(frame.cols(), frame.rows(), Bitmap.Config.ARGB_8888)
+            conversionBitmap = createBitmap(frame.cols(), frame.rows(), Bitmap.Config.ARGB_8888)
         }
         conversionBitmap?.let { bmp ->
             Utils.matToBitmap(frame, bmp)
@@ -265,12 +267,26 @@ class ImgAnalyzer : ImgProcessor {
             val criteria = TermCriteria(TermCriteria.EPS + TermCriteria.MAX_ITER, 100, 0.1)
             Core.kmeans(pointsMat, K_MEANS_CLUSTERS, labels, criteria, 3, Core.KMEANS_PP_CENTERS, centers)
 
-            val centroids = (0 until centers.rows()).map {
-                Scalar(centers.get(it, 0)[0], centers.get(it, 1)[0], centers.get(it, 2)[0])
+            // 各クラスタのピクセル数を数える
+            val counts = IntArray(K_MEANS_CLUSTERS)
+            val labelsArray = IntArray(labels.rows() * labels.cols())
+            labels.get(0, 0, labelsArray)
+            labelsArray.forEach { counts[it]++ }
+
+            // 重心と元のインデックスをペアにする
+            val indexedCentroids = (0 until centers.rows()).map { i ->
+                val centroid = Scalar(centers.get(i, 0)[0], centers.get(i, 1)[0], centers.get(i, 2)[0])
+                Pair(centroid, i)
             }
 
-            val sortedCentroids = centroids.sortedBy { (it.`val`[0] + it.`val`[1] + it.`val`[2]) }
-            return AnalysisResult(sortedCentroids)
+            // 明るさでソート
+            val sortedIndexedCentroids = indexedCentroids.sortedBy { (it.first.`val`[0] + it.first.`val`[1] + it.first.`val`[2]) }
+
+            // ソートされた順に重心とカウントをリスト化
+            val sortedCentroids = sortedIndexedCentroids.map { it.first }
+            val sortedCounts = sortedIndexedCentroids.map { counts[it.second] }
+
+            return AnalysisResult(sortedCentroids, sortedCounts, labelsArray.size)
 
         } catch (e: Exception) {
             Log.e(TAG, "analyzeColors: Exception occurred", e)
@@ -286,10 +302,10 @@ class ImgAnalyzer : ImgProcessor {
     // --- 内部ロジック (レポート生成) ---
 
     private fun createReportRow(result: PolygonAnalysisResult): Mat {
-        val imgWidth = 200
-        val graphWidth = 400
-        val textWidth = 300
-        val rowHeight = 150
+        val imgWidth = 400
+        val graphWidth = 250
+        val textWidth = 250
+        val rowHeight = 250
 
         // 1. 切り抜き画像
         val resizedImage = Mat()
@@ -318,7 +334,7 @@ class ImgAnalyzer : ImgProcessor {
             return graphMat
         }
 
-        val margin = 30
+        val margin = 40
         val graphWidth = size.width.toInt() - margin * 2
         val graphHeight = size.height.toInt() - margin * 2
         val origin = Point(margin.toDouble(), (size.height - margin).toDouble())
@@ -328,8 +344,23 @@ class ImgAnalyzer : ImgProcessor {
         Imgproc.rectangle(graphMat, Point(margin.toDouble(), margin.toDouble()), Point((origin.x + graphWidth), origin.y), COLOR_GRAY, 1)
 
         val stepX = graphWidth.toDouble() / (K_MEANS_CLUSTERS - 1).coerceAtLeast(1)
-        val scaleY = graphHeight.toDouble() / 255.0
 
+        // --- 棒グラフの描画 ---
+        val maxCount = result.sortedCounts.maxOrNull()?.toDouble() ?: 1.0
+        val barColor = Scalar(200.0, 200.0, 200.0, 200.0) // Semi-transparent gray
+        result.sortedCounts.forEachIndexed { index, count ->
+            val barHeight = (count / maxCount) * graphHeight
+            val x = origin.x + index * stepX
+            Imgproc.rectangle(
+                graphMat,
+                Point(x - stepX / 2.5, origin.y - barHeight),
+                Point(x + stepX / 2.5, origin.y),
+                barColor, -1
+            )
+        }
+
+        // --- 折れ線グラフの描画 ---
+        val scaleY = graphHeight.toDouble() / 255.0
         val pointsR = mutableListOf<Point>()
         val pointsG = mutableListOf<Point>()
         val pointsB = mutableListOf<Point>()
@@ -339,10 +370,8 @@ class ImgAnalyzer : ImgProcessor {
             pointsR.add(Point(x, origin.y - centroid.`val`[0] * scaleY))
             pointsG.add(Point(x, origin.y - centroid.`val`[1] * scaleY))
             pointsB.add(Point(x, origin.y - centroid.`val`[2] * scaleY))
-            
-            // X軸のクラスタ番号の描画位置を調整
-            Imgproc.putText(graphMat, "${index + 1}", Point(x - 5, origin.y + 15.0), // Y座標を上に調整
-                Imgproc.FONT_HERSHEY_SIMPLEX, 0.4, COLOR_BLACK, 1)
+
+            Imgproc.putText(graphMat, "${index + 1}", Point(x - 5, origin.y + 15), Imgproc.FONT_HERSHEY_SIMPLEX, 0.4, COLOR_BLACK, 1)
         }
 
         drawPolyline(graphMat, pointsR, COLOR_R)
@@ -354,12 +383,10 @@ class ImgAnalyzer : ImgProcessor {
         pointsB.forEach { Imgproc.circle(graphMat, it, 3, COLOR_B, -1) }
 
         // Y軸の目盛りを描画
-        Imgproc.putText(graphMat, "255", Point(margin - 25.0, margin + 5.0), Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_BLACK, 1)
-        Imgproc.putText(graphMat, "128", Point(margin - 25.0, origin.y - 128.0 * scaleY + 5.0), Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_GRAY, 1)
+        Imgproc.putText(graphMat, "255", Point(margin - 35.0, margin + 5.0), Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_BLACK, 1)
+        Imgproc.putText(graphMat, "128", Point(margin - 35.0, origin.y - 128.0 * scaleY + 5.0), Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_GRAY, 1)
         Imgproc.putText(graphMat, "0", Point(margin - 20.0, origin.y + 5.0), Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_BLACK, 1)
 
-        // グラフタイトル
-        Imgproc.putText(graphMat, "Analysis Graph", Point(margin.toDouble(), margin - 10.0), Imgproc.FONT_HERSHEY_SIMPLEX, 0.6, COLOR_BLACK, 2)
         return graphMat
     }
 
@@ -376,15 +403,11 @@ class ImgAnalyzer : ImgProcessor {
             val gVal = median.`val`[1]
             val bVal = median.`val`[2]
 
-            val moistureValue: Double
             val denominator = rVal - gVal
-
-            if (denominator != 0.0) {
-                moistureValue = (bVal - gVal) / denominator
+            val moistureValue: Double = if (denominator != 0.0) {
+                (bVal - gVal) / denominator
             } else {
-                // 分母が0の場合、NaN（非数）として扱うか、特定の値を表示
-                // ここではN/Aとして表示するため、計算をスキップ
-                moistureValue = Double.NaN
+                Double.NaN
             }
 
             val moistureText = if (moistureValue.isNaN()) {

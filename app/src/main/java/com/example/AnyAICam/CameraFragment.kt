@@ -556,12 +556,12 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
         val vSize = vBuffer.remaining()
         val nv21 = ByteArray(ySize + uSize + vSize)
         yBuffer.get(nv21, 0, ySize)
-        vBuffer.get(nv21, ySize, vSize)
-        uBuffer.get(nv21, ySize + vSize, uSize)
+        uBuffer.get(nv21, ySize, uSize)
+        vBuffer.get(nv21, ySize + uSize, vSize)
         val yuvImage = Mat(image.height + image.height / 2, image.width, CvType.CV_8UC1)
         yuvImage.put(0, 0, nv21)
         val rgbaMat = Mat()
-        Imgproc.cvtColor(yuvImage, rgbaMat, Imgproc.COLOR_YUV2RGBA_NV21, 4)
+        Imgproc.cvtColor(yuvImage, rgbaMat, Imgproc.COLOR_YUV2RGBA_I420, 4)
         yuvImage.release()
         return rgbaMat
     }
