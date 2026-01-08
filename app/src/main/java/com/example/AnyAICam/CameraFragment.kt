@@ -103,11 +103,17 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
     }
 
     private fun checkPermissionsAndInitialize() {
-        val permissionsToRequest = mutableListOf(Manifest.permission.CAMERA)
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+        val permissionsToRequest = mutableListOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
+            permissionsToRequest.add(Manifest.permission.READ_MEDIA_VIDEO)
+        } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
             permissionsToRequest.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        } else {
+            permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
-        permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
 
         val permissionsNotGranted = permissionsToRequest.filter {
             ContextCompat.checkSelfPermission(requireContext(), it) != PackageManager.PERMISSION_GRANTED
@@ -207,28 +213,12 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
             // Prepare for landmark saving
             videoLandmarksData.clear()
             videoTimestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            sharedViewModel.activeProcessors.value?.filter { it.saveLandmarks }?.forEach { processor ->
-                processor.getCsvHeader()?.let {
-                    header -> videoLandmarksData[processor] = mutableListOf(header)
-                }
-            }
         } else {
             binding.recordButton.setImageResource(android.R.drawable.ic_media_play)
             videoRecorder?.stop()
             videoRecorder = null
             videoFile?.let {
                 saveVideoToGallery(it)
-            }
-
-            // Save landmark data
-            if (videoLandmarksData.isNotEmpty()) {
-                videoLandmarksData.forEach { (processor, data) ->
-                    if (data.size > 1) { // Header + at least one row
-                        val csvFilename = "video_${videoTimestamp}_${processor.name}.csv"
-                        saveCsv(csvFilename, processor.saveDirectoryName, data)
-                    }
-                }
-                videoLandmarksData.clear()
             }
         }
     }
@@ -275,38 +265,46 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         } else {
-            return
+            MediaStore.Files.getContentUri("external")
         }
 
         val contentValues = ContentValues().apply {
-            put(MediaStore.Files.FileColumns.DISPLAY_NAME, filename)
-            put(MediaStore.Files.FileColumns.MIME_TYPE, "text/csv")
+            put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+            put(MediaStore.MediaColumns.MIME_TYPE, "text/csv")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val relativePath = Environment.DIRECTORY_DOCUMENTS + File.separator + "AnyAiCamera" + File.separator + directory
-                put(MediaStore.Files.FileColumns.RELATIVE_PATH, relativePath)
-                put(MediaStore.Files.FileColumns.IS_PENDING, 1)
+                // Documents/AnyAICam is the unified location
+                val relativePath = Environment.DIRECTORY_DOCUMENTS + File.separator + "AnyAICam" + File.separator + directory
+                put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
         }
 
-        val uri = resolver.insert(collection, contentValues)
-        uri?.let {
-            try {
-                resolver.openOutputStream(it)?.use { outputStream ->
-                    outputStream.bufferedWriter().use { writer ->
-                        data.forEach { line ->
-                            writer.write(line)
-                            writer.newLine()
-                        }
+        try {
+            val uri = resolver.insert(collection, contentValues)
+            if (uri == null) {
+                Log.e("CameraFragment", "Failed to insert CSV record into MediaStore")
+                return
+            }
+            resolver.openOutputStream(uri)?.use { outputStream ->
+                outputStream.bufferedWriter().use { writer ->
+                    data.forEach { line ->
+                        writer.write(line)
+                        writer.newLine()
                     }
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    contentValues.clear()
-                    contentValues.put(MediaStore.Files.FileColumns.IS_PENDING, 0)
-                    resolver.update(it, contentValues, null, null)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                contentValues.clear()
+                contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                resolver.update(uri, contentValues, null, null)
+            }
+
+            // Force media scan
+            android.media.MediaScannerConnection.scanFile(requireContext(), arrayOf(uri.toString()), null, null)
+
+            Log.d("CameraFragment", "Successfully saved CSV at: $uri")
+        } catch (e: Exception) {
+            Log.e("CameraFragment", "Error saving CSV", e)
         }
     }
 
@@ -405,13 +403,6 @@ class CameraFragment : Fragment(), ProcessorSelectionListener {
                                     // Use bitmap dimensions for recorder
                                     videoRecorder = VideoRecorder(displayBitmap.width, displayBitmap.height, videoFile!!)
                                     videoRecorder?.start()
-                                }
-
-                                // Collect landmark data
-                                videoLandmarksData.keys.forEach { processor ->
-                                    processor.getLandmarksForCsv()?.let { csvRow ->
-                                        videoLandmarksData[processor]?.add(csvRow)
-                                    }
                                 }
 
                                 // Draw the final display bitmap onto the recorder's surface

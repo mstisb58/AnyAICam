@@ -95,20 +95,7 @@ class PreviewFragment : Fragment() {
                     processedBitmaps[processor] = bitmapToSave
 
                     // 2. Determine the bitmap for the preview display
-                    val bitmapForPreview = if (processor.isDummyPreviewEnabled) {
-                        // If dummy mode is on, load the dummy icon from assets.
-                        try {
-                            requireContext().assets.open("icon.png").use { inputStream ->
-                                BitmapFactory.decodeStream(inputStream)
-                            } ?: bitmapToSave // Fallback to saved bitmap if loading fails
-                        } catch (e: Exception) {
-                            Log.e("PreviewFragment", "Failed to load dummy image", e)
-                            bitmapToSave // Fallback to saved bitmap on error
-                        }
-                    } else {
-                        // Otherwise, just use the already processed (real) bitmap.
-                        bitmapToSave
-                    }
+                    val bitmapForPreview = bitmapToSave
                     displayList.add(processor.name to bitmapForPreview)
                 }
             }
@@ -141,65 +128,87 @@ class PreviewFragment : Fragment() {
             val finalFilenameBase = if (filenameBase.isNotBlank()) filenameBase else "capture_${timestamp}"
 
             var saveCount = 0
+            var csvCount = 0
 
             processedBitmaps.forEach { (processor, bitmap) ->
+                Log.d("PreviewFragment", "Saving bitmap for ${processor.name}")
                 saveBitmap(bitmap, finalFilenameBase, processor.name, processor.saveDirectoryName)
                 saveCount++
 
-                if (processor.saveLandmarks) {
-                    val header = processor.getCsvHeader()
-                    val landmarksCsv = processor.getLandmarksForCsv()
-                    if (header != null && landmarksCsv != null) {
-                        val csvFilename = "${finalFilenameBase}_${processor.name}.csv"
-                        saveCsv(csvFilename, processor.saveDirectoryName, header, landmarksCsv)
+                // New CSV report saving logic
+                val csvData = processor.getReportCsv()
+                Log.d("PreviewFragment", "CSV data for ${processor.name}: ${if (csvData == null) "null" else if (csvData.isBlank()) "blank" else "length ${csvData.length}"}")
+                
+                csvData?.let { data ->
+                    if (data.isNotBlank()) {
+                        val csvFilename = "${finalFilenameBase}_${processor.name}_report.csv"
+                        val success = saveCsv(csvFilename, processor.saveDirectoryName, listOf(data))
+                        if (success) csvCount++
                     }
                 }
             }
 
             withContext(Dispatchers.Main) {
-                Toast.makeText(requireContext(), "$saveCount 件の画像と関連データを保存しました。", Toast.LENGTH_SHORT).show()
+                val message = if (csvCount > 0) {
+                    "$saveCount 件の画像と $csvCount 件のCSVを「Documents/AnyAICam」に保存しました。"
+                } else {
+                    "$saveCount 件の画像のみ保存しました（CSVはデータがないためスキップされました）。"
+                }
+                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
                 (activity as? MainActivity)?.navigateBackToCamera()
             }
         }
     }
 
-    private fun saveCsv(filename: String, directory: String, header: String, content: String) {
+    private fun saveCsv(filename: String, directory: String, data: List<String>): Boolean {
         val resolver = requireActivity().contentResolver
 
+        // MediaStore.Files is more generic and often more compatible for CSVs
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         } else {
-            return // Older versions not supported for this CSV feature
+            MediaStore.Files.getContentUri("external")
         }
 
         val contentValues = ContentValues().apply {
-            put(MediaStore.Files.FileColumns.DISPLAY_NAME, filename)
-            put(MediaStore.Files.FileColumns.MIME_TYPE, "text/csv")
+            put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+            put(MediaStore.MediaColumns.MIME_TYPE, "text/csv")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val relativePath = Environment.DIRECTORY_DOCUMENTS + File.separator + "AnyAiCamera" + File.separator + directory
-                put(MediaStore.Files.FileColumns.RELATIVE_PATH, relativePath)
-                put(MediaStore.Files.FileColumns.IS_PENDING, 1)
+                // Documents/AnyAICam is the unified location
+                val relativePath = Environment.DIRECTORY_DOCUMENTS + File.separator + "AnyAICam" + File.separator + directory
+                put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
         }
 
-        val uri = resolver.insert(collection, contentValues)
-        uri?.let {
-            try {
-                resolver.openOutputStream(it)?.use { outputStream ->
-                    outputStream.bufferedWriter().use { writer ->
-                        writer.write(header)
+        return try {
+            val uri = resolver.insert(collection, contentValues)
+            if (uri == null) {
+                Log.e("PreviewFragment", "Failed to insert CSV record into MediaStore")
+                return false
+            }
+            resolver.openOutputStream(uri)?.use { outputStream ->
+                outputStream.bufferedWriter().use { writer ->
+                    data.forEach { line ->
+                        writer.write(line)
                         writer.newLine()
-                        writer.write(content)
                     }
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    contentValues.clear()
-                    contentValues.put(MediaStore.Files.FileColumns.IS_PENDING, 0)
-                    resolver.update(it, contentValues, null, null)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                contentValues.clear()
+                contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                resolver.update(uri, contentValues, null, null)
+            }
+            
+            // Force media scan so it shows up in file managers immediately
+            android.media.MediaScannerConnection.scanFile(requireContext(), arrayOf(uri.toString()), null, null)
+            
+            Log.d("PreviewFragment", "Successfully saved CSV at: $uri")
+            true
+        } catch (e: Exception) {
+            Log.e("PreviewFragment", "Error saving CSV", e)
+            false
         }
     }
 
@@ -223,20 +232,27 @@ class PreviewFragment : Fragment() {
             }
         }
 
-        val uri = resolver.insert(collection, contentValues)
-        uri?.let {
-            try {
-                resolver.openOutputStream(it)?.use { outputStream ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    contentValues.clear()
-                    contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
-                    resolver.update(it, contentValues, null, null)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
+        try {
+            val uri = resolver.insert(collection, contentValues)
+            if (uri == null) {
+                Log.e("PreviewFragment", "Failed to insert Image record into MediaStore")
+                return
             }
+            resolver.openOutputStream(uri)?.use { outputStream ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                contentValues.clear()
+                contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
+                resolver.update(uri, contentValues, null, null)
+            }
+            
+            // Force media scan
+            android.media.MediaScannerConnection.scanFile(requireContext(), arrayOf(uri.toString()), null, null)
+            
+            Log.d("PreviewFragment", "Successfully saved Image at: $uri")
+        } catch (e: Exception) {
+            Log.e("PreviewFragment", "Error saving Image", e)
         }
     }
 

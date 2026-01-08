@@ -18,9 +18,6 @@ import kotlin.math.*
 class ImgAnalyzer : ImgProcessor {
     override val name: String = "Tongue"
     override val saveDirectoryName: String = "TongueDetector"
-    override var isDummyPreviewEnabled: Boolean = false
-    override var showLandmarks: Boolean = false
-    override var saveLandmarks: Boolean = false
     var forceShutterEnabled: Boolean = false // trueにすると、検出結果に関わらず常にシャッターを有効にする
 
     private var faceLandmarker: FaceLandmarker? = null
@@ -207,5 +204,9 @@ class ImgAnalyzer : ImgProcessor {
             angleDegrees = Math.toDegrees(angleRad).toFloat(),
             length = length
         )
+    }
+
+    override fun getReportCsv(): String? {
+        return null
     }
 }

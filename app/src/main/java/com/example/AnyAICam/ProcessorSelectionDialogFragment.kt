@@ -133,47 +133,27 @@ class ProcessorAdapter(
         container.removeAllViews()
         val context = container.context
 
-        // 1. Add "Dummy Preview" checkbox for all models
-        val dummyCheckBox = CheckBox(context).apply {
-            text = "Dummy Preview"
-            isChecked = processor.isDummyPreviewEnabled
-            setOnCheckedChangeListener { _, isChecked ->
-                processor.isDummyPreviewEnabled = isChecked
-            }
-        }
-        container.addView(dummyCheckBox)
-
-        // 2. Add landmark options if applicable
-        if (processor.getCsvHeader() != null) {
-            val showLandmarksCheckbox = CheckBox(context).apply {
-                text = "Show Landmarks"
-                isChecked = processor.showLandmarks
-                setOnCheckedChangeListener { _, isChecked ->
-                    processor.showLandmarks = isChecked
-                }
-            }
-            container.addView(showLandmarksCheckbox)
-
-            val saveLandmarksCheckbox = CheckBox(context).apply {
-                text = "Save Landmarks (CSV)"
-                isChecked = processor.saveLandmarks
-                setOnCheckedChangeListener { _, isChecked ->
-                    processor.saveLandmarks = isChecked
-                }
-            }
-            container.addView(saveLandmarksCheckbox)
-        }
-
-        // 3. Add other model-specific options
+        // Add model-specific options
         if (processor is com.example.AnyAICam.models.face_detector.ImgAnalyzer) {
-            val showNumbersCheckBox = CheckBox(context).apply {
-                text = "Show Numbers"
-                isChecked = processor.showNumbers
+            val saveLandmarksCheckBox = CheckBox(context).apply {
+                text = "ランドマークを保存"
+                isChecked = processor.isSaveLandmarksEnabled
                 setOnCheckedChangeListener { _, isChecked ->
-                    processor.showNumbers = isChecked
+                    processor.isSaveLandmarksEnabled = isChecked
                 }
             }
-            container.addView(showNumbersCheckBox)
+            container.addView(saveLandmarksCheckBox)
+        }
+
+        if (processor is com.example.AnyAICam.models.pose_detector.ImgAnalyzer) {
+            val saveLandmarksCheckBox = CheckBox(context).apply {
+                text = "ランドマークを保存"
+                isChecked = processor.isSaveLandmarksEnabled
+                setOnCheckedChangeListener { _, isChecked ->
+                    processor.isSaveLandmarksEnabled = isChecked
+                }
+            }
+            container.addView(saveLandmarksCheckBox)
         }
 
         if (processor is com.example.AnyAICam.models.show_aqua.ImgAnalyzer) {
@@ -203,6 +183,16 @@ class ProcessorAdapter(
                 }
             }
             container.addView(radioGroup)
+
+            // Add CSV export option for show_aqua
+            val csvCheckBox = CheckBox(context).apply {
+                text = "CSV結果を書き出す"
+                isChecked = processor.isCsvExportEnabled
+                setOnCheckedChangeListener { _, isChecked ->
+                    processor.isCsvExportEnabled = isChecked
+                }
+            }
+            container.addView(csvCheckBox)
         }
 
         if (processor is com.example.AnyAICam.models.tongue_detector.ImgAnalyzer) { // This is the Tongue Detector

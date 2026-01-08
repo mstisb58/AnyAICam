@@ -23,11 +23,52 @@ class ImgAnalyzer : ImgProcessor {
         private const val TAG = "ShowAquaImgAnalyzer"
         private const val MODEL_PATH = "mediapipe/face_landmarker.task"
 
+//        private val TARGET_POLYGONS = mapOf(
+//            "Forehead_01" to listOf(109, 108, 151, 10),
+//            "Forehead_02" to listOf(10, 151, 337, 338),
+//
+//        )
         private val TARGET_POLYGONS = mapOf(
-            "Forehead_01" to listOf(109, 108, 151, 10),
-            "Forehead_02" to listOf(10, 151, 337, 338),
+                "LFace_01" to listOf(108, 107, 9, 151),
+                "LFace_02" to listOf(69, 66, 107, 108),
+                "LFace_03" to listOf(104, 63, 66, 69),
+                "LFace_04" to listOf(46, 111, 117, 63),
+                "LFace_05" to listOf(111, 187, 205, 117),
+                "LFace_06" to listOf(117, 205, 36, 119),
+                "LFace_07" to listOf(119, 36, 220, 174),
+                "LFace_08" to listOf(174, 220, 4, 197),
+                "LFace_09" to listOf(193, 174, 197, 168),
+                "LFace_10" to listOf(107, 193, 168, 9),
+                "LFace_11" to listOf(187, 214, 216, 205),
+                "LFace_12" to listOf(205, 216, 203, 36),
+                "LFace_13" to listOf(36, 203, 239, 220),
+                "LFace_14" to listOf(203, 216, 39, 167),
+                "LFace_15" to listOf(167, 39, 0, 164),
+                "LFace_16" to listOf(214, 210, 212, 216),
+                "LFace_17" to listOf(212, 210, 194, 181),
+                "LFace_18" to listOf(181, 194, 200, 17),
+                "RFace_01" to listOf(151, 9, 336, 337),
+                "RFace_02" to listOf(337, 336, 296, 299),
+                "RFace_03" to listOf(299, 296, 293, 333),
+                "RFace_04" to listOf(293, 346, 340, 276),
+                "RFace_05" to listOf(346, 425, 411, 340),
+                "RFace_06" to listOf(348, 266, 425, 346),
+                "RFace_07" to listOf(399, 440, 266, 348),
+                "RFace_08" to listOf(197, 4, 440, 399),
+                "RFace_09" to listOf(168, 197, 399, 417),
+                "RFace_10" to listOf(9, 168, 417, 336),
+                "RFace_11" to listOf(425, 436, 434, 411),
+                "RFace_12" to listOf(266, 423, 436, 425),
+                "RFace_13" to listOf(440, 459, 423, 266),
+                "RFace_14" to listOf(393, 269, 436, 423),
+                "RFace_15" to listOf(164, 0, 269, 393),
+                "RFace_16" to listOf(436, 432, 430, 434),
+                "RFace_17" to listOf(405, 418, 430, 432),
+                "RFace_18" to listOf(17, 200, 418, 405),
         )
-        private val MASK_POLYGONS = mapOf("eye_mask" to listOf(225,31,448,445))
+        private val MASK_POLYGONS = mapOf(
+            "eye_mask" to listOf(225,31,448,445)
+        )
 
         private val DRAW_COLOR_LANDMARKS = Scalar(0.0, 255.0, 0.0, 255.0) // Green
         private const val DRAW_THICKNESS_LANDMARKS = 3
@@ -42,21 +83,21 @@ class ImgAnalyzer : ImgProcessor {
 
     override val name: String = "show_aqua"
     override val saveDirectoryName: String = "show_aqua_results"
-    override var isDummyPreviewEnabled: Boolean = false
-    override var showLandmarks: Boolean = false
-    override var saveLandmarks: Boolean = false
 
     enum class OperatingMode {
         REPORT,
         HEATMAP
     }
     var operatingMode: OperatingMode = OperatingMode.REPORT
-    var heatmapMinMoisture: Double = 0.5
-    var heatmapMaxMoisture: Double = 1.5
+    var heatmapMinMoisture: Double = 0.0
+    var heatmapMaxMoisture: Double = 1.7
+    var isCsvExportEnabled: Boolean = false
 
     private var faceLandmarker: FaceLandmarker? = null
     private var lastLandmarks: List<NormalizedLandmark>? = null
     private var conversionBitmap: Bitmap? = null
+    @Volatile
+    private var lastAnalysisResults: List<PolygonAnalysisInfo>? = null
 
     private data class AnalysisResult(
         val sortedCentroids: List<Scalar>,
@@ -75,6 +116,11 @@ class ImgAnalyzer : ImgProcessor {
     private data class PolygonAnalysisResult(
         val name: String,
         val croppedImage: Mat,
+        val analysisResult: AnalysisResult?
+    )
+
+    private data class PolygonAnalysisInfo(
+        val name: String,
         val analysisResult: AnalysisResult?
     )
 
@@ -110,142 +156,164 @@ class ImgAnalyzer : ImgProcessor {
     }
 
     override fun processFrameForSaving(frame: Bitmap): Bitmap {
-        return when (operatingMode) {
-            OperatingMode.REPORT -> createAnalysisReport(frame)
-            OperatingMode.HEATMAP -> createHeatmapView(frame)
-        }
-    }
-
-    private fun createHeatmapView(frame: Bitmap): Bitmap {
-        val inputMat = Mat()
-        Utils.bitmapToMat(frame, inputMat)
-        val outputMat = inputMat.clone()
-
-        val landmarks = detectLandmarks(inputMat)
-        if (landmarks == null) {
-            Log.w(TAG, "No landmarks for heatmap, returning original frame.")
-            inputMat.release()
-            outputMat.release()
-            return frame
-        }
-
-        val overlay = Mat.zeros(inputMat.size(), inputMat.type())
-
-        for ((_, ids) in TARGET_POLYGONS) {
-            val extracted = extractPolygonRegion(inputMat, landmarks, ids)
-            if (extracted != null && extracted.roi.width() >= 10 && extracted.roi.height() >= 10) {
-                val analysis = analyzeColors(extracted.roi)
-                val moisture = calculateMoistureValue(analysis)
-
-                if (!moisture.isNaN()) {
-                    val normalizedValue = (((moisture - heatmapMinMoisture) / (heatmapMaxMoisture - heatmapMinMoisture) * 255.0))
-                        .coerceIn(0.0, 255.0).toInt().toByte()
-
-                    val valueMat = Mat(1, 1, CvType.CV_8UC1)
-                    valueMat.put(0, 0, byteArrayOf(normalizedValue))
-                    val colorMat = Mat()
-                    Imgproc.applyColorMap(valueMat, colorMat, Imgproc.COLORMAP_JET)
-                    val colorScalarBGR = Scalar(colorMat.get(0, 0))
-                    val colorScalarBGRA = Scalar(colorScalarBGR.`val`[0], colorScalarBGR.`val`[1], colorScalarBGR.`val`[2], 255.0)
-
-                    val points = getLandmarkPoints(inputMat.cols(), inputMat.rows(), landmarks, ids)
-                    if (points.isNotEmpty()) {
-                        val matOfPoint = MatOfPoint().apply { fromList(points) }
-                        Imgproc.fillPoly(overlay, listOf(matOfPoint), colorScalarBGRA)
-                        
-                        val boundingRect = Imgproc.boundingRect(matOfPoint)
-                        val textOrigin = Point(boundingRect.x.toDouble()+5, (boundingRect.y + boundingRect.height-20).toDouble())
-                        val moistureText = String.format(Locale.US, "%.2f", moisture)
-
-                        // Calculate dynamic font scale and thickness
-                        val fontScale = (outputMat.width() / 1000.0).coerceAtLeast(0.5)
-                        val thickness = (outputMat.width() / 400.0).coerceAtLeast(1.0).toInt()
-
-                        Imgproc.putText(outputMat, moistureText, textOrigin, Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, COLOR_BLACK, thickness)
-                        
-                        matOfPoint.release()
-                    }
-                    valueMat.release()
-                    colorMat.release()
-                }
-                extracted.roi.release()
-                extracted.mask.release()
-            }
-        }
-
-        Core.addWeighted(outputMat, 1.0, overlay, 0.6, 0.0, outputMat)
-
-        // Draw masking polygons on top of everything
-        for ((_, ids) in MASK_POLYGONS) {
-            val points = getLandmarkPoints(outputMat.cols(), outputMat.rows(), landmarks, ids)
-            if (points.isNotEmpty()) {
-                val matOfPoint = MatOfPoint().apply { fromList(points) }
-                Imgproc.fillPoly(outputMat, listOf(matOfPoint), COLOR_BLACK)
-                matOfPoint.release()
-            }
-        }
-
-        overlay.release()
-        inputMat.release()
-
-        val resultBitmap = createBitmap(outputMat.cols(), outputMat.rows(), Bitmap.Config.ARGB_8888)
-        Utils.matToBitmap(outputMat, resultBitmap)
-        outputMat.release()
-
-        return resultBitmap
-    }
-
-    private fun calculateMoistureValue(result: AnalysisResult?): Double {
-        if (result == null) return Double.NaN
-        val median = result.getMedianCentroid()
-        val rVal = median.`val`[0]
-        val gVal = median.`val`[1]
-        val bVal = median.`val`[2]
-        val denominator = rVal - bVal
-        return if (denominator.absoluteValue > 1e-6) {
-            (gVal - bVal) / denominator
-        } else {
-            Double.NaN
-        }
-    }
-
-    private fun createAnalysisReport(frame: Bitmap): Bitmap {
         val inputMat = Mat()
         Utils.bitmapToMat(frame, inputMat)
         val landmarks = detectLandmarks(inputMat)
-        val allPolygonResults = mutableListOf<PolygonAnalysisResult>()
-        var finalMat: Mat? = null
-
-        try {
-            if (landmarks == null) return frame
-
+        
+        // Analyze for CSV if enabled, even if we are in HEATMAP mode
+        if (landmarks != null) {
+            val analysisResults = mutableListOf<PolygonAnalysisResult>()
             for ((name, ids) in TARGET_POLYGONS) {
                 val extracted = extractPolygonRegion(inputMat, landmarks, ids)
                 if (extracted != null && extracted.roi.width() >= 10 && extracted.roi.height() >= 10) {
                     val analysis = analyzeColors(extracted.roi)
-                    allPolygonResults.add(PolygonAnalysisResult(name, extracted.roi, analysis))
+                    analysisResults.add(PolygonAnalysisResult(name, extracted.roi, analysis))
                     extracted.mask.release()
                 } else {
                     extracted?.roi?.release()
                     extracted?.mask?.release()
                 }
             }
-
-            if (allPolygonResults.isEmpty()) return frame
-
-            val reportRows = allPolygonResults.map { createReportRow(it) }
-            finalMat = stackMatsVertically(reportRows)
-            reportRows.forEach { it.release() }
-
-            if (finalMat == null || finalMat.empty()) return frame
-
-            val resultBitmap = createBitmap(finalMat.cols(), finalMat.rows(), Bitmap.Config.ARGB_8888)
-            Utils.matToBitmap(finalMat, resultBitmap)
-            return resultBitmap
-        } finally {
+            this.lastAnalysisResults = analysisResults.map { PolygonAnalysisInfo(it.name, it.analysisResult) }
+            Log.d("ShowAqua", "Analysis completed: ${analysisResults.size} polygons analyzed")
+            
+            val resultBitmap = when (operatingMode) {
+                OperatingMode.REPORT -> {
+                    val reportRows = analysisResults.map { createReportRow(it) }
+                    val finalMat = stackMatsVertically(reportRows)
+                    reportRows.forEach { it.release() }
+                    
+                    if (finalMat != null && !finalMat.empty()) {
+                        val bmp = createBitmap(finalMat.cols(), finalMat.rows(), Bitmap.Config.ARGB_8888)
+                        Utils.matToBitmap(finalMat, bmp)
+                        finalMat.release()
+                        bmp
+                    } else {
+                        frame
+                    }
+                }
+                OperatingMode.HEATMAP -> {
+                    val heatmapMat = createHeatmapViewFromResults(inputMat, landmarks, analysisResults)
+                    val bmp = createBitmap(heatmapMat.cols(), heatmapMat.rows(), Bitmap.Config.ARGB_8888)
+                    Utils.matToBitmap(heatmapMat, bmp)
+                    heatmapMat.release()
+                    bmp
+                }
+            }
+            
+            // Cleanup
+            analysisResults.forEach { it.croppedImage.release() }
             inputMat.release()
-            allPolygonResults.forEach { it.croppedImage.release() }
-            finalMat?.release()
+            return resultBitmap
+        } else {
+            inputMat.release()
+            return frame
+        }
+    }
+
+    private fun createHeatmapViewFromResults(inputMat: Mat, landmarks: List<NormalizedLandmark>, results: List<PolygonAnalysisResult>): Mat {
+        val outputMat = inputMat.clone()
+        val overlay = Mat.zeros(inputMat.size(), inputMat.type())
+
+        for (result in results) {
+            val moisture = calculateMoistureValue(result.analysisResult)
+            if (!moisture.isNaN()) {
+                val normalizedValue = (((moisture - heatmapMinMoisture) / (heatmapMaxMoisture - heatmapMinMoisture) * 255.0))
+                    .coerceIn(0.0, 255.0).toInt().toByte()
+
+                val valueMat = Mat(1, 1, CvType.CV_8UC1)
+                valueMat.put(0, 0, byteArrayOf(normalizedValue))
+                val colorMat = Mat()
+                Imgproc.applyColorMap(valueMat, colorMat, Imgproc.COLORMAP_JET)
+                val colorScalarBGR = Scalar(colorMat.get(0, 0))
+                val colorScalarBGRA = Scalar(colorScalarBGR.`val`[0], colorScalarBGR.`val`[1], colorScalarBGR.`val`[2], 255.0)
+
+                val ids = TARGET_POLYGONS[result.name] ?: continue
+                val points = getLandmarkPoints(inputMat.cols(), inputMat.rows(), landmarks, ids)
+                if (points.isNotEmpty()) {
+                    val matOfPoint = MatOfPoint().apply { fromList(points) }
+                    Imgproc.fillPoly(overlay, listOf(matOfPoint), colorScalarBGRA)
+                    
+                    val boundingRect = Imgproc.boundingRect(matOfPoint)
+                    val textOrigin = Point(boundingRect.x.toDouble()+5, (boundingRect.y + boundingRect.height-20).toDouble())
+                    val moistureText = String.format(Locale.US, "%.2f", moisture)
+
+                    val fontScale = (outputMat.width() / 1000.0).coerceAtLeast(0.5)
+                    val thickness = (outputMat.width() / 400.0).coerceAtLeast(1.0).toInt()
+
+                    Imgproc.putText(outputMat, moistureText, textOrigin, Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, COLOR_BLACK, thickness)
+                    matOfPoint.release()
+                }
+                valueMat.release()
+                colorMat.release()
+            }
+        }
+
+        Core.addWeighted(outputMat, 1.0, overlay, 0.6, 0.0, outputMat)
+        overlay.release()
+
+        val finalWithColorbar = addColorbar(outputMat, heatmapMinMoisture, heatmapMaxMoisture)
+        outputMat.release()
+        return finalWithColorbar
+    }
+
+    private fun addColorbar(image: Mat, minVal: Double, maxVal: Double): Mat {
+        val colorbarHeight = 80
+        val textHeight = 30
+        val totalHeight = image.rows() + colorbarHeight
+        val resultMat = Mat(totalHeight, image.cols(), image.type(), COLOR_WHITE)
+        val imageRoi = resultMat.submat(0, image.rows(), 0, image.cols())
+        image.copyTo(imageRoi)
+        imageRoi.release()
+
+        val colorbarRoi = resultMat.submat(image.rows(), totalHeight, 0, image.cols())
+        val gradientMat = Mat(1, 256, CvType.CV_8UC1)
+        val gradientData = ByteArray(256)
+
+        for (i in 0 until 256) {
+            gradientData[i] = i.toByte()
+        }
+        gradientMat.put(0, 0, gradientData)
+        val colorGradient = Mat()
+        Imgproc.applyColorMap(gradientMat, colorGradient, Imgproc.COLORMAP_JET)
+        val resizedGradient = Mat()
+        Imgproc.resize(colorGradient, resizedGradient, Size(colorbarRoi.cols().toDouble(), (colorbarHeight - textHeight).toDouble()))
+        val resizedGradientBGRA = Mat()
+        Imgproc.cvtColor(resizedGradient, resizedGradientBGRA, Imgproc.COLOR_BGR2BGRA)
+        val gradientTargetRoi = colorbarRoi.submat(0, resizedGradientBGRA.rows(), 0, resizedGradientBGRA.cols())
+        resizedGradientBGRA.copyTo(gradientTargetRoi)
+        gradientTargetRoi.release()
+        val fontScale = 0.8
+        val thickness = 2
+        val textColor = COLOR_BLACK
+        val textY = image.rows() + resizedGradientBGRA.rows() + textHeight - 10
+        val minText = String.format(Locale.US, "%.1f", minVal)
+        Imgproc.putText(resultMat, minText, Point(10.0, textY.toDouble()), Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, textColor, thickness)
+        val maxText = String.format(Locale.US, "%.1f", maxVal)
+        val maxTextSize = Imgproc.getTextSize(maxText, Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, thickness, null)
+        Imgproc.putText(resultMat, maxText, Point((resultMat.cols() - maxTextSize.width - 10), textY.toDouble()), Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, textColor, thickness)
+        val midVal = (minVal + maxVal) / 2
+        val midText = String.format(Locale.US, "%.1f", midVal)
+        val midTextSize = Imgproc.getTextSize(midText, Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, thickness, null)
+        Imgproc.putText(resultMat, midText, Point((resultMat.cols() / 2 - midTextSize.width / 2), textY.toDouble()), Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, textColor, thickness)
+        gradientMat.release()
+        colorGradient.release()
+        resizedGradient.release()
+        resizedGradientBGRA.release()
+        colorbarRoi.release()
+        return resultMat
+    }
+
+    private fun calculateMoistureValue(result: AnalysisResult?): Double {
+        if (result == null) return Double.NaN
+        val median = result.getMedianCentroid()
+        val gVal = median.`val`[1]
+        val bVal = median.`val`[2]
+        val denominator = bVal
+        return if (denominator.absoluteValue > 1e-6) {
+            2-(gVal / denominator)
+        } else {
+            Double.NaN
         }
     }
 
@@ -507,11 +575,37 @@ class ImgAnalyzer : ImgProcessor {
         return Rect(x1, y1, maxOf(0, x2 - x1), maxOf(0, y2 - y1))
     }
 
-    override fun getLandmarksForCsv(): String? {
-        return lastLandmarks?.let { LandmarkHelper.landmarksToCsvRow(it) }
-    }
+    override fun getReportCsv(): String? {
+        if (!isCsvExportEnabled) return null
+        val results = lastAnalysisResults ?: return null
+        val header = buildString {
+            append("area_name,")
+            for (i in 1..K_MEANS_CLUSTERS) {
+                append("cluster${i}_area,cluster${i}_r,cluster${i}_g,cluster${i}_b,")
+            }
+        }.removeSuffix(",")
 
-    override fun getCsvHeader(): String? {
-        return LandmarkHelper.getCsvHeader()
+        val csvData = StringBuilder()
+        csvData.appendLine(header)
+
+        results.forEach { result ->
+            csvData.append("${result.name},")
+            if (result.analysisResult != null) {
+                for (i in 0 until K_MEANS_CLUSTERS) {
+                    val count = result.analysisResult.sortedCounts.getOrNull(i) ?: 0
+                    val r = result.analysisResult.sortedCentroids.getOrNull(i)?.`val`?.get(0) ?: 0.0
+                    val g = result.analysisResult.sortedCentroids.getOrNull(i)?.`val`?.get(1) ?: 0.0
+                    val b = result.analysisResult.sortedCentroids.getOrNull(i)?.`val`?.get(2) ?: 0.0
+                    csvData.append("$count,${r.toInt()},${g.toInt()},${b.toInt()},")
+                }
+            } else {
+                for (i in 0 until K_MEANS_CLUSTERS) {
+                    csvData.append("0,0,0,0,")
+                }
+            }
+            csvData.setLength(csvData.length - 1) // Remove last comma
+            csvData.appendLine()
+        }
+        return csvData.toString()
     }
 }

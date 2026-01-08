@@ -1,35 +1,28 @@
-// models/raw/ImgAnalyzer.kt
 package com.example.AnyAICam.models.raw
 
+import android.content.Context
 import android.graphics.Bitmap
 import com.example.AnyAICam.ImgProcessor
 import org.opencv.core.Mat
 
-/**
- * Raw画像をそのまま返すプロセッサ。
- * プレビューや保存のために、未加工の画像を他の処理結果と並べて表示したい場合に使用します。
- */
 class ImgAnalyzer : ImgProcessor {
-    override val name: String = "Raw"
-    override val saveDirectoryName: String = "Raw"
-    override var isDummyPreviewEnabled: Boolean = false
-    override var showLandmarks: Boolean = false
-    override var saveLandmarks: Boolean = false
+    override val name: String = "raw"
+    override val saveDirectoryName: String = "raw_images"
 
-    /**
-     * リアルタイム表示用の処理。
-     * 何も加工せず、受け取ったフレームをそのまま返します。
-     */
+    override fun setup(context: Context) {
+        // No setup needed for raw image processor
+    }
+
     override fun processFrameForDisplay(frame: Mat): Pair<Mat, Boolean> {
-        // 常にシャッターOKとします。
         return Pair(frame, true)
     }
 
-    /**
-     * 保存用の処理。
-     * 何も加工せず、受け取ったBitmapをそのまま返します。
-     */
     override fun processFrameForSaving(frame: Bitmap): Bitmap {
         return frame
+    }
+
+    override fun getReportCsv(): String? {
+        // This processor does not generate a CSV report.
+        return null
     }
 }

@@ -9,74 +9,11 @@ import org.opencv.core.Mat
  * すべての画像処理モジュールが実装するインターフェース。
  */
 interface ImgProcessor {
-    /**
-     * プロセッサーの名前。UIの選択肢などで使用されます。
-     */
     val name: String
-
-    /**
-     * このプロセッサーが画像を保存する際のサブディレクトリ名。
-     * 例: "wink_detector_results"
-     */
     val saveDirectoryName: String
 
-    /**
-     * このプロセッサーでダミープレビューが有効になっているかどうかのフラグ。
-     * このフラグの状態は、UI（モデル選択ダイアログなど）によって変更されます。
-     */
-    var isDummyPreviewEnabled: Boolean
-
-    /**
-     * このプロセッサーでランドマーク表示が有効になっているかどうかのフラグ。
-     */
-    var showLandmarks: Boolean
-
-    /**
-     * このプロセッサーでランドマークのCSV保存が有効になっているかどうかのフラグ。
-     */
-    var saveLandmarks: Boolean
-
-    /**
-     * 初期化処理。モデルの読み込みなど、重い処理をここで行います。
-     * @param context アプリケーションコンテキスト。アセットファイルの読み込みなどに使用します。
-     */
-    fun setup(context: Context) {
-        // デフォルトでは何もしない。必要なクラスのみオーバーライドする。
-    }
-
-    /**
-     * カメラのリアルタイムプレビュー用にフレームを処理します。
-     * 処理は高速であることが求められます。
-     *
-     * @param frame カメラからの入力フレーム (OpenCVのMat形式)
-     * @return 処理後のフレーム(Mat)と、処理が成功したか（シャッターを押せる状態か）を示すステータス(Boolean)のペア。
-     */
+    fun setup(context: Context)
     fun processFrameForDisplay(frame: Mat): Pair<Mat, Boolean>
-
-    /**
-     * 最終的に保存するための画像を生成します。
-     * こちらはプレビューと異なり、時間をかけて精度の高い処理を行うことも可能です。
-     *
-     * @param frame 撮影された元の高解像度フレーム (Bitmap形式)
-     * @return 処理後の画像 (Bitmap形式)
-     */
     fun processFrameForSaving(frame: Bitmap): Bitmap
-
-    /**
-     * ランドマーク情報のCSVヘッダーを返します。
-     * ランドマークをサポートしないプロセッサはnullを返します。
-     */
-    fun getCsvHeader(): String? {
-        return null
-    }
-
-    /**
-     * 最新のフレームから検出されたランドマーク情報をCSVの1行として返します。
-     * ランドマークをサポートしない、または検出されなかった場合はnullを返します。
-     */
-    fun getLandmarksForCsv(): String? {
-        return null
-    }
-
-    
+    fun getReportCsv(): String?
 }

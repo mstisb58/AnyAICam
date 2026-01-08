@@ -31,6 +31,7 @@ object LandmarkHelper {
 
     fun getCsvHeader(): String {
         val header = StringBuilder()
+        header.append("frame_index,")
         // Mediapipe FaceLandmarker has 478 landmarks with blendshapes
         for (i in 0 until 478) {
             header.append("landmark_${i}_x,landmark_${i}_y,landmark_${i}_z,")
@@ -38,8 +39,9 @@ object LandmarkHelper {
         return header.removeSuffix(",").toString()
     }
 
-    fun landmarksToCsvRow(landmarks: List<NormalizedLandmark>): String {
+    fun landmarksToCsvRow(landmarks: List<NormalizedLandmark>, frameIndex: Int): String {
         val row = StringBuilder()
+        row.append("$frameIndex,")
         if (landmarks.isNotEmpty()) {
             for (landmark in landmarks) {
                 row.append("${landmark.x()},${landmark.y()},${landmark.z()},")

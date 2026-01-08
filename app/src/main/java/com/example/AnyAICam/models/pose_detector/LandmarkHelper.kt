@@ -5,6 +5,7 @@ import org.opencv.core.Mat
 import org.opencv.core.Point
 import org.opencv.core.Scalar
 import org.opencv.imgproc.Imgproc
+import java.util.Optional
 
 object LandmarkHelper {
     private val LANDMARK_COLOR = Scalar(0.0, 255.0, 0.0) // Green
@@ -44,6 +45,7 @@ object LandmarkHelper {
 
     fun getCsvHeader(): String {
         val header = StringBuilder()
+        header.append("frame_index,")
         // 33 landmarks for PoseLandmarker
         for (i in 0 until 33) {
             header.append("landmark_${i}_x,landmark_${i}_y,landmark_${i}_z,landmark_${i}_visibility,")
@@ -51,8 +53,9 @@ object LandmarkHelper {
         return header.removeSuffix(",").toString()
     }
 
-    fun landmarksToCsvRow(landmarks: List<NormalizedLandmark>): String {
+    fun landmarksToCsvRow(landmarks: List<NormalizedLandmark>, frameIndex: Int): String {
         val row = StringBuilder()
+        row.append("$frameIndex,")
         if (landmarks.isNotEmpty()) {
             for (landmark in landmarks) {
                 row.append("${landmark.x()},${landmark.y()},${landmark.z()},${landmark.visibility().orElse(0.0f)},")
