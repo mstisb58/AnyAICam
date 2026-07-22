@@ -5,11 +5,21 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.CheckBox
+import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
+import android.widget.Spinner
+import android.widget.TextView
 import androidx.fragment.app.DialogFragment
+import android.text.InputType
+import android.view.Gravity
+import android.text.TextWatcher
+import android.text.Editable
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.AnyAICam.databinding.DialogProcessorSelectionBinding
@@ -193,6 +203,102 @@ class ProcessorAdapter(
                 }
             }
             container.addView(csvCheckBox)
+
+            // --- Added: Heatmap configuration ---
+            val divider = View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2).apply {
+                    setMargins(0, 16, 0, 16)
+                }
+                setBackgroundColor(android.graphics.Color.LTGRAY)
+            }
+            container.addView(divider)
+
+            // Color Map Spinner
+            container.addView(TextView(context).apply { text = "カラーチャートの種類" })
+            val colorMapSpinner = Spinner(context).apply {
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                    setMargins(0, 0, 0, 8)
+                }
+            }
+
+            // Visual Colorbar Preview
+            val colorbarPreview = ImageView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 60).apply {
+                    setMargins(0, 8, 0, 8)
+                }
+                scaleType = ImageView.ScaleType.FIT_XY
+            }
+
+            fun updateColorbar() {
+                val bitmap = processor.generateColorbarBitmap(processor.heatmapColorMap, 500, 60)
+                colorbarPreview.setImageBitmap(bitmap)
+            }
+
+            val colorMapNames = com.example.AnyAICam.models.show_aqua.ImgAnalyzer.COLOR_MAPS.keys.toList()
+            val spinnerAdapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, colorMapNames)
+            spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            colorMapSpinner.adapter = spinnerAdapter
+            
+            val currentColorMapName = com.example.AnyAICam.models.show_aqua.ImgAnalyzer.COLOR_MAPS.entries.find { it.value == processor.heatmapColorMap }?.key
+            colorMapSpinner.setSelection(colorMapNames.indexOf(currentColorMapName).coerceAtLeast(0))
+            
+            colorMapSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    val selectedName = colorMapNames[position]
+                    processor.heatmapColorMap = com.example.AnyAICam.models.show_aqua.ImgAnalyzer.COLOR_MAPS[selectedName] ?: 2 // Default to JET
+                    updateColorbar()
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+            container.addView(colorMapSpinner)
+            container.addView(colorbarPreview)
+
+            // Numeric Input for Min/Max at the ends of the colorbar
+            val inputContainer = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+            val minEdit = EditText(context).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                hint = "Dry"
+                setText(String.format("%.1f", processor.heatmapMinMoisture))
+                inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+                gravity = Gravity.CENTER
+                addTextChangedListener(object : TextWatcher {
+                    override fun afterTextChanged(s: Editable?) {
+                        s?.toString()?.toDoubleOrNull()?.let { processor.heatmapMinMoisture = it }
+                    }
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                })
+            }
+
+            val arrowLabel = TextView(context).apply {
+                text = " <---> "
+                gravity = Gravity.CENTER
+            }
+
+            val maxEdit = EditText(context).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                hint = "Moisture"
+                setText(String.format("%.1f", processor.heatmapMaxMoisture))
+                inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+                gravity = Gravity.CENTER
+                addTextChangedListener(object : TextWatcher {
+                    override fun afterTextChanged(s: Editable?) {
+                        s?.toString()?.toDoubleOrNull()?.let { processor.heatmapMaxMoisture = it }
+                    }
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                })
+            }
+
+            inputContainer.addView(minEdit)
+            inputContainer.addView(arrowLabel)
+            inputContainer.addView(maxEdit)
+            container.addView(inputContainer)
         }
 
         if (processor is com.example.AnyAICam.models.tongue_detector.ImgAnalyzer) { // This is the Tongue Detector

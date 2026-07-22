@@ -29,42 +29,54 @@ class ImgAnalyzer : ImgProcessor {
 //
 //        )
         private val TARGET_POLYGONS = mapOf(
-                "LFace_01" to listOf(108, 107, 9, 151),
-                "LFace_02" to listOf(69, 66, 107, 108),
-                "LFace_03" to listOf(104, 63, 66, 69),
-                "LFace_04" to listOf(46, 111, 117, 63),
-                "LFace_05" to listOf(111, 187, 205, 117),
-                "LFace_06" to listOf(117, 205, 36, 119),
-                "LFace_07" to listOf(119, 36, 220, 174),
-                "LFace_08" to listOf(174, 220, 4, 197),
-                "LFace_09" to listOf(193, 174, 197, 168),
-                "LFace_10" to listOf(107, 193, 168, 9),
-                "LFace_11" to listOf(187, 214, 216, 205),
-                "LFace_12" to listOf(205, 216, 203, 36),
-                "LFace_13" to listOf(36, 203, 239, 220),
-                "LFace_14" to listOf(203, 216, 39, 167),
-                "LFace_15" to listOf(167, 39, 0, 164),
-                "LFace_16" to listOf(214, 210, 212, 216),
-                "LFace_17" to listOf(212, 210, 194, 181),
-                "LFace_18" to listOf(181, 194, 200, 17),
-                "RFace_01" to listOf(151, 9, 336, 337),
-                "RFace_02" to listOf(337, 336, 296, 299),
-                "RFace_03" to listOf(299, 296, 293, 333),
-                "RFace_04" to listOf(293, 346, 340, 276),
-                "RFace_05" to listOf(346, 425, 411, 340),
-                "RFace_06" to listOf(348, 266, 425, 346),
-                "RFace_07" to listOf(399, 440, 266, 348),
-                "RFace_08" to listOf(197, 4, 440, 399),
-                "RFace_09" to listOf(168, 197, 399, 417),
-                "RFace_10" to listOf(9, 168, 417, 336),
-                "RFace_11" to listOf(425, 436, 434, 411),
-                "RFace_12" to listOf(266, 423, 436, 425),
-                "RFace_13" to listOf(440, 459, 423, 266),
-                "RFace_14" to listOf(393, 269, 436, 423),
-                "RFace_15" to listOf(164, 0, 269, 393),
-                "RFace_16" to listOf(436, 432, 430, 434),
-                "RFace_17" to listOf(405, 418, 430, 432),
-                "RFace_18" to listOf(17, 200, 418, 405),
+                "LFace_01" to listOf(109, 108, 151, 10),
+                "LFace_02" to listOf(67, 69, 108, 109),
+                "LFace_03" to listOf(103, 68, 69, 67),
+                "LFace_04" to listOf(46, 124, 222, 65),
+                "LFace_05" to listOf(65, 222, 193, 55),
+                "LFace_06" to listOf(70, 143, 124, 46),
+                "LFace_07" to listOf(143, 117, 31, 124),
+                "LFace_08" to listOf(31, 117, 119, 230),
+                "LFace_09" to listOf(230, 119, 174, 245),
+                "LFace_10" to listOf(143, 187, 205, 117),
+                "LFace_11" to listOf(117, 205, 36, 119),
+                "LFace_12" to listOf(119, 36, 220, 174),
+                "LFace_13" to listOf(174, 220, 1, 197),
+                "LFace_14" to listOf(245, 174, 197, 6),
+                "LFace_15" to listOf(193, 245, 6, 168),
+                "LFace_16" to listOf(55, 193, 168, 8),
+                "LFace_17" to listOf(108, 55, 8, 151),
+                "LFace_18" to listOf(187, 214, 57, 205),
+                "LFace_19" to listOf(205, 57, 186, 36),
+                "LFace_20" to listOf(36, 186, 235, 220),
+                "LFace_21" to listOf(235, 186, 37, 167),
+                "LFace_22" to listOf(167, 37, 0, 164),
+                "LFace_23" to listOf(214, 211, 182, 57),
+                "LFace_24" to listOf(211, 199, 18, 182),
+                "RFace_01" to listOf(10, 151, 337, 338),
+                "RFace_02" to listOf(338, 337, 299, 297),
+                "RFace_03" to listOf(297, 299, 298, 332),
+                "RFace_04" to listOf(151, 8, 285, 337),
+                "RFace_05" to listOf(8, 168, 417, 285),
+                "RFace_06" to listOf(285, 417, 442, 295),
+                "RFace_07" to listOf(295, 442, 353, 276),
+                "RFace_08" to listOf(276, 353, 372, 300),
+                "RFace_09" to listOf(261, 346, 372, 353),
+                "RFace_10" to listOf(450, 348, 346, 261),
+                "RFace_11" to listOf(465, 399, 348, 450),
+                "RFace_12" to listOf(6, 197, 399, 465),
+                "RFace_13" to listOf(168, 6, 465, 417),
+                "RFace_14" to listOf(197, 1, 440, 399),
+                "RFace_15" to listOf(399, 440, 266, 348),
+                "RFace_16" to listOf(348, 266, 425, 346),
+                "RFace_17" to listOf(346, 425, 411, 372),
+                "RFace_18" to listOf(440, 455, 410, 266),
+                "RFace_19" to listOf(266, 410, 287, 425),
+                "RFace_20" to listOf(425, 287, 434, 411),
+                "RFace_21" to listOf(393, 267, 410, 455),
+                "RFace_22" to listOf(164, 0, 267, 393),
+                "RFace_23" to listOf(287, 406, 431, 434),
+                "RFace_24" to listOf(18, 199, 431, 406)
         )
         private val MASK_POLYGONS = mapOf(
             "eye_mask" to listOf(225,31,448,445)
@@ -79,6 +91,85 @@ class ImgAnalyzer : ImgProcessor {
         private val COLOR_BLACK = Scalar(0.0, 0.0, 0.0, 255.0)
         private val COLOR_WHITE = Scalar(255.0, 255.0, 255.0, 255.0)
         private val COLOR_GRAY = Scalar(200.0, 200.0, 200.0, 255.0)
+
+        val COLOR_MAPS = mapOf(
+            "JET" to Imgproc.COLORMAP_JET,
+            "VIRIDIS" to Imgproc.COLORMAP_VIRIDIS,
+            "PLASMA" to Imgproc.COLORMAP_PLASMA,
+            "INFERNO" to Imgproc.COLORMAP_INFERNO,
+            "MAGMA" to Imgproc.COLORMAP_MAGMA,
+            "HOT" to Imgproc.COLORMAP_HOT,
+            "YlGnBu" to -100 // Custom implementation
+        )
+        private const val COLORMAP_CUSTOM_YLGNBU = -100
+    }
+
+    private fun getYlGnBuLut(): Mat {
+        val lut = Mat(256, 1, CvType.CV_8UC3)
+        val colors = arrayOf(
+            doubleArrayOf(217.0, 255.0, 255.0), // BGR for #ffffd9
+            doubleArrayOf(177.0, 248.0, 237.0), // #edf8b1
+            doubleArrayOf(180.0, 233.0, 199.0), // #c7e9b4
+            doubleArrayOf(187.0, 205.0, 127.0), // #7fcdbb
+            doubleArrayOf(196.0, 182.0, 65.0),  // #41b6c4
+            doubleArrayOf(192.0, 145.0, 29.0),  // #1d91c0
+            doubleArrayOf(168.0, 94.0, 34.0),   // #225ea8
+            doubleArrayOf(148.0, 52.0, 37.0),   // #253494
+            doubleArrayOf(88.0, 29.0, 8.0)      // #081d58
+        )
+
+        for (i in 0 until 256) {
+            val findex = i / 255.0 * (colors.size - 1)
+            val idx = findex.toInt()
+            val frac = findex - idx
+            val c1 = colors[idx]
+            val c2 = if (idx < colors.size - 1) colors[idx + 1] else colors[idx]
+
+            val b = c1[0] * (1 - frac) + c2[0] * frac
+            val g = c1[1] * (1 - frac) + c2[1] * frac
+            val r = c1[2] * (1 - frac) + c2[2] * frac
+
+            lut.put(i, 0, b, g, r)
+        }
+        return lut
+    }
+
+    private fun applyColorMapWithCustom(src: Mat, dst: Mat, colorMap: Int) {
+        if (colorMap == COLORMAP_CUSTOM_YLGNBU) {
+            val lut = getYlGnBuLut()
+            Imgproc.applyColorMap(src, dst, lut)
+            lut.release()
+        } else {
+            Imgproc.applyColorMap(src, dst, colorMap)
+        }
+    }
+
+    fun generateColorbarBitmap(colorMap: Int, width: Int, height: Int): Bitmap {
+        val gradientMat = Mat(1, 256, CvType.CV_8UC1)
+        val gradientData = ByteArray(256)
+        for (i in 0 until 256) {
+            gradientData[i] = i.toByte()
+        }
+        gradientMat.put(0, 0, gradientData)
+
+        val colorGradient = Mat()
+        applyColorMapWithCustom(gradientMat, colorGradient, colorMap)
+
+        val resizedGradient = Mat()
+        Imgproc.resize(colorGradient, resizedGradient, Size(width.toDouble(), height.toDouble()))
+
+        val resizedGradientRGBA = Mat()
+        Imgproc.cvtColor(resizedGradient, resizedGradientRGBA, Imgproc.COLOR_BGR2RGBA)
+
+        val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(resizedGradientRGBA, bmp)
+
+        gradientMat.release()
+        colorGradient.release()
+        resizedGradient.release()
+        resizedGradientRGBA.release()
+
+        return bmp
     }
 
     override val name: String = "show_aqua"
@@ -89,8 +180,9 @@ class ImgAnalyzer : ImgProcessor {
         HEATMAP
     }
     var operatingMode: OperatingMode = OperatingMode.REPORT
-    var heatmapMinMoisture: Double = 0.0
-    var heatmapMaxMoisture: Double = 1.7
+    var heatmapMinMoisture: Double = 0.5
+    var heatmapMaxMoisture: Double = 1.5
+    var heatmapColorMap: Int = Imgproc.COLORMAP_JET
     var isCsvExportEnabled: Boolean = false
 
     private var faceLandmarker: FaceLandmarker? = null
@@ -215,18 +307,28 @@ class ImgAnalyzer : ImgProcessor {
         val outputMat = inputMat.clone()
         val overlay = Mat.zeros(inputMat.size(), inputMat.type())
 
+        val range = heatmapMaxMoisture - heatmapMinMoisture
+
         for (result in results) {
             val moisture = calculateMoistureValue(result.analysisResult)
             if (!moisture.isNaN()) {
-                val normalizedValue = (((moisture - heatmapMinMoisture) / (heatmapMaxMoisture - heatmapMinMoisture) * 255.0))
-                    .coerceIn(0.0, 255.0).toInt().toByte()
+                val normalizedValue = if (range.absoluteValue < 1e-6) {
+                    0.0
+                } else {
+                    ((moisture - heatmapMinMoisture) / range * 255.0)
+                }.coerceIn(0.0, 255.0).toInt().toByte()
 
                 val valueMat = Mat(1, 1, CvType.CV_8UC1)
                 valueMat.put(0, 0, byteArrayOf(normalizedValue))
                 val colorMat = Mat()
-                Imgproc.applyColorMap(valueMat, colorMat, Imgproc.COLORMAP_JET)
+                applyColorMapWithCustom(valueMat, colorMat, heatmapColorMap)
                 val colorScalarBGR = Scalar(colorMat.get(0, 0))
-                val colorScalarBGRA = Scalar(colorScalarBGR.`val`[0], colorScalarBGR.`val`[1], colorScalarBGR.`val`[2], 255.0)
+                val colorScalarBGRA = Scalar(
+                    colorScalarBGR.`val`[2], // Red (OpenCVの2番目) を 0番目へ
+                    colorScalarBGR.`val`[1], // Green
+                    colorScalarBGR.`val`[0], // Blue (OpenCVの0番目) を 2番目へ
+                    255.0
+                )
 
                 val ids = TARGET_POLYGONS[result.name] ?: continue
                 val points = getLandmarkPoints(inputMat.cols(), inputMat.rows(), landmarks, ids)
@@ -275,11 +377,11 @@ class ImgAnalyzer : ImgProcessor {
         }
         gradientMat.put(0, 0, gradientData)
         val colorGradient = Mat()
-        Imgproc.applyColorMap(gradientMat, colorGradient, Imgproc.COLORMAP_JET)
+        applyColorMapWithCustom(gradientMat, colorGradient, heatmapColorMap)
         val resizedGradient = Mat()
         Imgproc.resize(colorGradient, resizedGradient, Size(colorbarRoi.cols().toDouble(), (colorbarHeight - textHeight).toDouble()))
         val resizedGradientBGRA = Mat()
-        Imgproc.cvtColor(resizedGradient, resizedGradientBGRA, Imgproc.COLOR_BGR2BGRA)
+        Imgproc.cvtColor(resizedGradient, resizedGradientBGRA, Imgproc.COLOR_BGR2RGBA)
         val gradientTargetRoi = colorbarRoi.submat(0, resizedGradientBGRA.rows(), 0, resizedGradientBGRA.cols())
         resizedGradientBGRA.copyTo(gradientTargetRoi)
         gradientTargetRoi.release()
@@ -287,15 +389,15 @@ class ImgAnalyzer : ImgProcessor {
         val thickness = 2
         val textColor = COLOR_BLACK
         val textY = image.rows() + resizedGradientBGRA.rows() + textHeight - 10
-        val minText = String.format(Locale.US, "%.1f", minVal)
+        val minText = String.format(Locale.US, "%.1f (Dry)", minVal)
         Imgproc.putText(resultMat, minText, Point(10.0, textY.toDouble()), Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, textColor, thickness)
-        val maxText = String.format(Locale.US, "%.1f", maxVal)
+        val maxText = String.format(Locale.US, "%.1f (Moisture)", maxVal)
         val maxTextSize = Imgproc.getTextSize(maxText, Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, thickness, null)
         Imgproc.putText(resultMat, maxText, Point((resultMat.cols() - maxTextSize.width - 10), textY.toDouble()), Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, textColor, thickness)
         val midVal = (minVal + maxVal) / 2
         val midText = String.format(Locale.US, "%.1f", midVal)
         val midTextSize = Imgproc.getTextSize(midText, Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, thickness, null)
-        Imgproc.putText(resultMat, midText, Point((resultMat.cols() / 2 - midTextSize.width / 2), textY.toDouble()), Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, textColor, thickness)
+        //Imgproc.putText(resultMat, midText, Point((resultMat.cols() / 2 - midTextSize.width / 2), textY.toDouble()), Imgproc.FONT_HERSHEY_SIMPLEX, fontScale, textColor, thickness)
         gradientMat.release()
         colorGradient.release()
         resizedGradient.release()
@@ -311,7 +413,7 @@ class ImgAnalyzer : ImgProcessor {
         val bVal = median.`val`[2]
         val denominator = bVal
         return if (denominator.absoluteValue > 1e-6) {
-            2-(gVal / denominator)
+            (gVal / denominator)
         } else {
             Double.NaN
         }
@@ -384,7 +486,11 @@ class ImgAnalyzer : ImgProcessor {
             bgrMat.get(0, 0, data)
 
             val validPixels = ArrayList<Float>()
-            for (i in 0 until numPixels) {
+            // Optimize by sampling pixels if there are too many
+            val maxPixelsToAnalyze = 10000
+            val sampleStep = (numPixels / maxPixelsToAnalyze).coerceAtLeast(1)
+
+            for (i in 0 until numPixels step sampleStep) {
                 val index = i * 3
                 val b = data[index].toInt() and 0xFF
                 val g = data[index + 1].toInt() and 0xFF
@@ -443,56 +549,85 @@ class ImgAnalyzer : ImgProcessor {
     }
 
     private fun createReportGraph(result: AnalysisResult?, size: Size): Mat {
-        val graphMat = Mat(size, CvType.CV_8UC4, COLOR_WHITE)
+        // 【修正1】背景を「完全不透明な白」で初期化 (Alpha=255.0)
+        val opaqueWhite = Scalar(255.0, 255.0, 255.0, 255.0)
+        val graphMat = Mat(size, CvType.CV_8UC4, opaqueWhite)
+
         if (result == null) {
             Imgproc.putText(graphMat, "Analysis Failed", Point(size.width / 2 - 100, size.height / 2), Imgproc.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_BLACK, 2)
             return graphMat
         }
+
         val margin = 40
         val graphWidth = size.width.toInt() - margin * 2
         val graphHeight = size.height.toInt() - margin * 2
         val origin = Point(margin.toDouble(), (size.height - margin).toDouble())
+
+        // グラフエリアの背景（ごく薄いグレー、不透明）
         Imgproc.rectangle(graphMat, Point(margin.toDouble(), margin.toDouble()), Point((origin.x + graphWidth), origin.y - graphHeight), Scalar(250.0, 250.0, 250.0, 255.0), -1)
+        // 枠線
         Imgproc.rectangle(graphMat, Point(margin.toDouble(), margin.toDouble()), Point((origin.x + graphWidth), origin.y), COLOR_GRAY, 1)
+
         val stepX = graphWidth.toDouble() / (K_MEANS_CLUSTERS - 1).coerceAtLeast(1)
         val maxCount = result.sortedCounts.maxOrNull()?.toDouble() ?: 1.0
-        val barColor = Scalar(200.0, 200.0, 200.0, 200.0)
+
+        // 【修正2】棒グラフの色：RGBはグレー(200)のまま、Alphaを255(不透明)に変更
+        // これにより背景が透けなくなります
+        val barColor = Scalar(200.0, 200.0, 200.0, 255.0)
+
         result.sortedCounts.forEachIndexed { index, count ->
             val barHeight = (count / maxCount) * graphHeight
             val x = origin.x + index * stepX
+            // 棒グラフを描画（不透明なグレーで上書き）
             Imgproc.rectangle(graphMat, Point(x - stepX / 2.5, origin.y - barHeight), Point(x + stepX / 2.5, origin.y), barColor, -1)
         }
+
         val scaleY = graphHeight.toDouble() / 255.0
         val pointsR = mutableListOf<Point>()
         val pointsG = mutableListOf<Point>()
         val pointsB = mutableListOf<Point>()
+
         result.sortedCentroids.forEachIndexed { index, centroid ->
             val x = origin.x + index * stepX
             pointsR.add(Point(x, origin.y - centroid.`val`[0] * scaleY))
             pointsG.add(Point(x, origin.y - centroid.`val`[1] * scaleY))
             pointsB.add(Point(x, origin.y - centroid.`val`[2] * scaleY))
+
+            // X軸インデックス
             Imgproc.putText(graphMat, "${index + 1}", Point(x - 5, origin.y + 15), Imgproc.FONT_HERSHEY_SIMPLEX, 0.4, COLOR_BLACK, 1)
         }
+
+        // 折れ線グラフと点（COLOR_R等はAlpha255の定義であることを前提としています）
         drawPolyline(graphMat, pointsR, COLOR_R)
         drawPolyline(graphMat, pointsG, COLOR_G)
         drawPolyline(graphMat, pointsB, COLOR_B)
+
         pointsR.forEach { Imgproc.circle(graphMat, it, 3, COLOR_R, -1) }
         pointsG.forEach { Imgproc.circle(graphMat, it, 3, COLOR_G, -1) }
         pointsB.forEach { Imgproc.circle(graphMat, it, 3, COLOR_B, -1) }
+
+        // Y軸ラベル
         Imgproc.putText(graphMat, "255", Point(margin - 35.0, margin + 5.0), Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_BLACK, 1)
         Imgproc.putText(graphMat, "128", Point(margin - 35.0, origin.y - 128.0 * scaleY + 5.0), Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_GRAY, 1)
         Imgproc.putText(graphMat, "0", Point(margin - 20.0, origin.y + 5.0), Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_BLACK, 1)
+
         return graphMat
     }
 
     private fun createReportText(name: String, result: AnalysisResult?, size: Size): Mat {
-        val textMat = Mat(size, CvType.CV_8UC4, COLOR_WHITE)
+        // 【修正1】こちらも同様に完全不透明な白で初期化
+        val opaqueWhite = Scalar(255.0, 255.0, 255.0, 255.0)
+        val textMat = Mat(size, CvType.CV_8UC4, opaqueWhite)
+
         val textStartX = 20.0
         val lineHeight = 35.0
+
         Imgproc.putText(textMat, name, Point(textStartX, lineHeight), Imgproc.FONT_HERSHEY_SIMPLEX, 0.8, COLOR_BLACK, 2)
+
         if (result != null) {
             val moistureValue = calculateMoistureValue(result)
-            val moistureText = if (moistureValue.isNaN()) "Moisture: N/A" else String.format(Locale.US, "Moisture: %.1f", moistureValue)
+            val moistureText = if (moistureValue.isNaN()) "Moisture: N/A" else String.format(Locale.US, "Moisture: %.2f", moistureValue)
+
             Imgproc.putText(textMat, "Median Analysis (5/9)", Point(textStartX, lineHeight * 2), Imgproc.FONT_HERSHEY_SIMPLEX, 0.6, COLOR_BLACK, 1)
             Imgproc.putText(textMat, moistureText, Point(textStartX, lineHeight * 3), Imgproc.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_BLACK, 2)
         } else {
