@@ -46,6 +46,10 @@ android {
             useLegacyPackaging = false
         }
     }
+
+    kotlin {
+        jvmToolchain(17)
+    }
 }
 
 dependencies {
